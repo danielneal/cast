@@ -1,0 +1,54 @@
+li {
+  list-style: none;
+}
+
+.feature-list {
+  margin-left:20px;
+  margin-right:20px;
+  margin-top:20px;
+  margin-bottom: -2em;
+}
+
+.feature-list .footer-up {
+  margin-bottom: -8em;
+}
+
+.button-small {
+  font-size: 75%;
+  margin:5px;
+}
+
+.number-of-votes {
+  font-size: 200%;
+  font-weight:bold;
+  width:35px;
+  display:inline-block;
+  text-align:center;
+  vertical-align:top;
+}
+
+.feature {
+  display:inline-block;
+  vertical-align:top;
+  margin:5px;
+}
+
+.feature .expand {
+  margin:5px;
+  cursor:pointer;
+}
+
+.feature .title {
+  font-weight:bold;
+  margin:5px;
+}
+
+.feature .description {
+  margin:5px;
+  display:block;
+}
+
+.clickable {
+  cursor:pointer;
+  padding:3px;
+}

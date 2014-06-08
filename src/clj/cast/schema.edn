@@ -1,0 +1,29 @@
+[{:db/id #db/id[:db.part/db]
+  :db/ident :feature/title
+  :db/valueType :db.type/string
+  :db/cardinality :db.cardinality/one
+  :db/doc "The title of a feature"
+  :db.install/_attribute :db.part/db}
+
+ {:db/id #db/id[:db.part/db]
+  :db/ident :feature/description
+  :db/valueType :db.type/string
+  :db/cardinality :db.cardinality/one
+  :db/doc "The description of a feature"
+  :db.install/_attribute :db.part/db}
+
+ {:db/id #db/id[:db.part/db]
+  :db/ident :feature/votes
+  :db/valueType :db.type/long
+  :db/cardinality :db.cardinality/one
+  :db/doc "The name of votes the feature has received"
+  :db.install/_attribute :db.part/db}
+
+ {:db/id #db/id[:db.part/db]
+  :db/ident :feature/id
+  :db/unique :db.unique/identity
+  :db/valueType :db.type/uuid
+  :db/cardinality :db.cardinality/one
+  :db/doc "A unique id for a feature"
+  :db.install/_attribute :db.part/db}]
+
