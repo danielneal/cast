@@ -55,8 +55,10 @@
     c 0))
 
 (defc= features-with-votes
-    (for [[id t d] features]
-      [id t d (vote-count state id)]))
+  (->> (for [[id t d] features]
+         [id t d (vote-count state id)])
+       (sort-by last)
+       (reverse)))
 
 ; --------------------------
 ; Commands
@@ -74,6 +76,11 @@
                                [?e :vote/feature ?feature]
                                [?e :vote/user ?user]] state feature user))]
     (d/transact! conn [[:db.fn/retractEntity e]])))
+
+(defn add-feature! [state title description]
+  (d/transact! conn [{:db/id -1
+                      :feature/title title
+                      :feature/description description}]))
 
 ; --------------------------
 ; Page
@@ -104,5 +111,7 @@
                              :class (cell= {:pure-button true
                                             :button-unvote true})
                              :on-click #(down-vote! @state @id @current-user-id)
-                             "-")))))))
+                             "-"))))
+       (button :on-click #(add-feature! @state "New feature" "With description") "Add feature"))))
+
 
