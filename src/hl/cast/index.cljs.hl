@@ -2,48 +2,80 @@
       (:require [tailrecursion.hoplon.storage-atom :refer [local-storage]]
                 [datascript :as d]))
 
-(def ^:dynamic *mode* :local)
-
 ; --------------------------
-; Stem Cells
+; Input Cells
 ; --------------------------
 
+(defc state nil)
+
+; --------------------------
+; Datascript set up
+; --------------------------
 
 (def conn (d/create-conn))
 
-(defc db nil)
+(d/listen! conn #(reset! state @conn))
 
-(d/listen! conn #(reset! db @conn))
-
-(d/transact! conn [{:db/id -1
-                    :title "A feature"
-                    :description "A descriptions"
-                    :votes 0}
-                   {:db/id -2
-                    :title "Another feature"
-                    :description "Another description"
-                    :votes 1}])
-
+(d/transact! conn [{:state/id -1
+                    :feature/title "A feature"
+                    :feature/description "A descriptions"}
+                   {:state/id -2
+                    :feature/title "Another feature"
+                    :feature/description "Another description"}
+                   {:state/id -3
+                    :user/name "Daniel"}
+                   {:state/id -4
+                    :user/name "Bob"}
+                   {:state/id -5
+                    :vote/feature -1
+                    :vote/user -3}])
 
 ; --------------------------
 ; Formula Cells
 ; --------------------------
 
-(defc= sorted-features
-  (d/q '[:find ?e ?t ?V
-         :where [?e :title ?t]
-         [?e :votes ?V]] db))
+(defc= users
+  (d/q '[:find ?e
+         :in $
+         :where
+         [?e :user/name ?n]]))
+
+(defc= current-user-id (ffirst users))
+
+(defc= features
+  (d/q '[:find ?e ?t ?d
+         :in $
+         :where
+         [?e :feature/title ?t]
+         [?e :feature/description ?d]] state))
+
+(defc= features-with-votes
+  (let [vote-count (fn [state id]
+                     (if-let [[f c]
+                              (first (d/q '[:find ?feature (count ?v)
+                                            :in $ ?feature
+                                            :where
+                                            [?v :vote/feature ?feature]] state id))]
+                       c 0))]
+    (for [[id t d] features]
+      [id t d (vote-count state id)])))
 
 ; --------------------------
-; Local
+; Commands
 ; --------------------------
 
-(defn up-vote! []
-  (d/transact! conn [{:db/id -3 :title "test" :votes 5}]))
+(defn up-vote! [state feature user]
+  (d/transact! conn [{:state/id -1
+                      :vote/feature feature
+                      :vote/user user}]))
 
-; --------------------------
-; Server
-; --------------------------
+(defn down-vote! [state feature user]
+  (when-let [[e] (first (d/q '[:find ?e
+                               :in $ ?feature ?user
+                               :where
+                               [?e :vote/feature ?feature]
+                               [?e :vote/user ?user]] state feature user))]
+    (d/transact! conn [[:state.fn/retractEntity e]])))
 
 ; --------------------------
 ; Page
@@ -52,9 +84,12 @@
 (html
  (head
   (link :rel "stylesheet" :href "http://yui.yahooapis.com/pure/0.4.2/pure-min.css")
-  (link :rel "stylesheet" :href "css/app.css"))
+  (link :rel "stylesheet" :href "css/main.css")
+  (script :type "text/javascript" :id "lt_ws" :src "http://localhost:49191/socket.io/lighttable/ws.js"))
  (body
-  (h1 (loop-tpl :bindings [[id title votes] sorted-features]
-                (div (p (text "~{title} ~{votes} ~{db}"))
-                     (button :on-click #(up-vote! id) "+"))))))
+  (h1 (loop-tpl :bindings [[id title description votes] features-with-votes]
+                (div (p (text "~{id} ~{title} ~{description} ~{votes}"))
+                     (button :on-click #(up-vote! @state @id @current-user-id) "+")
+                     (button :on-click #(down-vote! @state @id @current-user-id) "-"))))))
+
 
