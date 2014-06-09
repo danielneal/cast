@@ -133,6 +133,7 @@
                   (input :type "text" :id "username" :placeholder "Username")
                   (button :on-click #(login! @state (val-id "username")) :class "pure-button pure-button-primary" "Log in"))
         (fieldset :do-toggle logged-in?
+                  (label (text "~{votes-remaining} votes remaining"))
                   (label (text "Logged in as ~{current-user-name}"))
                   (button :class "pure-button pure-button-primary" :on-click #(logout! @state) "Log out"))))
   (div :class "pure-g content"
