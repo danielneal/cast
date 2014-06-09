@@ -7,26 +7,13 @@
 ; --------------------------
 
 (defc state nil)
+(defc current-user-id nil)
 
 ; --------------------------
 ; Datascript set up
 ; --------------------------
 
 (def conn (d/create-conn))
-
-(d/listen! conn #(reset! state @conn))
-
-(d/transact! conn [{:db/id -1
-                    :feature/title "A feature"
-                    :feature/description "A descriptions"}
-                   {:db/id -2
-                    :feature/title "Another feature"
-                    :feature/description "Another description"}
-                   {:db/id -3
-                    :user/name "Daniel"}
-                   {:db/id -4
-                    :user/name "Bob"}])
-
 
 ; --------------------------
 ; Formula Cells
@@ -36,9 +23,7 @@
   (d/q '[:find ?e
          :in $
          :where
-         [?e :user/name ?n]]))
-
-(defc= current-user-id (ffirst users))
+         [?e :user/name ?n]] state))
 
 (defc= features
   (d/q '[:find ?e ?t ?d
@@ -59,6 +44,19 @@
          [id t d (vote-count state id)])
        (sort-by last)
        (reverse)))
+
+
+(defc= votes-remaining
+  (let [max-votes (ffirst (d/q '[:find ?m
+                                 :in $ ?u
+                                 :where
+                                 [?u :user/max-votes ?m]] state current-user-id))
+        current-votes (ffirst (d/q '[:find (count ?v)
+                                     :in $ ?u
+                                     :where
+                                     [?v :vote/user ?u]
+                                     [?v :vote/feature ?f]] state current-user-id))]
+    (- max-votes current-votes)))
 
 ; --------------------------
 ; Commands
@@ -82,6 +80,24 @@
                       :feature/title title
                       :feature/description description}]))
 
+(defn init! []
+  (d/listen! conn #(reset! state @conn))
+  (d/transact! conn [{:db/id -1
+                      :feature/title "A feature"
+                      :feature/description "A descriptions"}
+                     {:db/id -2
+                      :feature/title "Another feature"
+                      :feature/description "Another description"}
+                     {:db/id -3
+                      :user/name "Daniel"
+                      :user/max-votes 10}
+                     {:db/id -4
+                      :user/name "Bob"
+                      :user/max-votes 10}])
+  (reset! current-user-id (ffirst @users)))
+
+(init!)
+
 ; --------------------------
 ; Page
 ; --------------------------
@@ -93,7 +109,7 @@
   (script :type "text/javascript" :id "lt_ws" :src "http://localhost:49191/socket.io/lighttable/ws.js"))
  (body
   (div :class "pure-g content"
-       (h2 :class "pure-u-1 l-box" (text "You have some votes remaining"))
+       (h2 :class "pure-u-1 l-box" (text "You have ~{votes-remaining} votes remaining"))
        (loop-tpl :bindings [[id title description votes] features-with-votes]
                  (div :class "pure-g pure-u-1 l-box"
                       (div :class "pure-u-3-5"
@@ -101,17 +117,19 @@
                            (span :class "description" (text "~{description}")))
                       (div :class "pure-u-1-5"
                            (span :class "votes" (text "~{votes}")))
-                      (div :class "pure-u-1-5"
-                           (button
-                            :class (cell= {:pure-button true
-                                           :button-vote true})
-                            :on-click #(up-vote! @state @id @current-user-id)
-                            "+")
-                            (button
-                             :class (cell= {:pure-button true
-                                            :button-unvote true})
-                             :on-click #(down-vote! @state @id @current-user-id)
-                             "-"))))
+                      (let [votes-available (cell= (> votes-remaining 0))]
+                        (div :class "pure-u-1-5"
+                             (button
+                              :class (cell= {:pure-button true
+                                             :button-vote true})
+                              :on-click #(when @votes-available
+                                           (up-vote! @state @id @current-user-id))
+                              "+")
+                             (button
+                              :class (cell= {:pure-button true
+                                             :button-unvote true})
+                              :on-click #(down-vote! @state @id @current-user-id)
+                              "-")))))
        (button :on-click #(add-feature! @state "New feature" "With description") "Add feature"))))
 
 
