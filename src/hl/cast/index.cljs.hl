@@ -58,9 +58,6 @@
     (for [[id t d] features]
       [id t d (vote-count state id)]))
 
-(doseq [[id t d v] @features-with-votes]
-  (println id t d v))
-
 ; --------------------------
 ; Commands
 ; --------------------------
