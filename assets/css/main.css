@@ -1,54 +1,50 @@
-li {
-  list-style: none;
+/* apply a natural box layout model to all elements */
+*, *:before, *:after {
+  -moz-box-sizing: border-box; -webkit-box-sizing: border-box; box-sizing: border-box;
 }
 
-.feature-list {
-  margin-left:20px;
-  margin-right:20px;
-  margin-top:20px;
-  margin-bottom: -2em;
+.content {
+  max-width:25em;
+  margin:auto;
 }
 
-.feature-list .footer-up {
-  margin-bottom: -8em;
+.votes {
+  font-size: 1em;
+  font-weight: bold;
+  display: block;
+  text-align: center;
 }
 
-.button-small {
-  font-size: 75%;
-  margin:5px;
+.title {
+  font-size: 0.8em;
+  font-weight: bold;
+  display: block;
 }
 
-.number-of-votes {
-  font-size: 200%;
-  font-weight:bold;
-  width:35px;
-  display:inline-block;
-  text-align:center;
-  vertical-align:top;
+.description {
+  font-size: 0.6em;
+  font-weight: normal;
+  display: block;
 }
 
-.feature {
-  display:inline-block;
-  vertical-align:top;
-  margin:5px;
+.l-box {
+  padding: 1em;
 }
 
-.feature .expand {
-  margin:5px;
-  cursor:pointer;
+.pure-button {
+  padding: 0.2em;
+  min-width: 2em;
+  border-radius:4px;
+  font-size:0.8em;
+  color: white;
+  margin: 0.2em;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.2);
 }
 
-.feature .title {
-  font-weight:bold;
-  margin:5px;
+.button-vote {
+  background: rgb(28, 184, 65); /* this is a green */
 }
 
-.feature .description {
-  margin:5px;
-  display:block;
-}
-
-.clickable {
-  cursor:pointer;
-  padding:3px;
+.button-unvote {
+  background: rgb(202, 60, 60); /* this is a maroon */
 }

@@ -16,19 +16,17 @@
 
 (d/listen! conn #(reset! state @conn))
 
-(d/transact! conn [{:state/id -1
+(d/transact! conn [{:db/id -1
                     :feature/title "A feature"
                     :feature/description "A descriptions"}
-                   {:state/id -2
+                   {:db/id -2
                     :feature/title "Another feature"
                     :feature/description "Another description"}
-                   {:state/id -3
+                   {:db/id -3
                     :user/name "Daniel"}
-                   {:state/id -4
-                    :user/name "Bob"}
-                   {:state/id -5
-                    :vote/feature -1
-                    :vote/user -3}])
+                   {:db/id -4
+                    :user/name "Bob"}])
+
 
 ; --------------------------
 ; Formula Cells
@@ -49,23 +47,26 @@
          [?e :feature/title ?t]
          [?e :feature/description ?d]] state))
 
+(defn vote-count [state id]
+  (if-let [[f c] (first (d/q '[:find ?feature (count ?v)
+                               :in $ ?feature
+                               :where
+                               [?v :vote/feature ?feature]] state id))]
+    c 0))
+
 (defc= features-with-votes
-  (let [vote-count (fn [state id]
-                     (if-let [[f c]
-                              (first (d/q '[:find ?feature (count ?v)
-                                            :in $ ?feature
-                                            :where
-                                            [?v :vote/feature ?feature]] state id))]
-                       c 0))]
     (for [[id t d] features]
-      [id t d (vote-count state id)])))
+      [id t d (vote-count state id)]))
+
+(doseq [[id t d v] @features-with-votes]
+  (println id t d v))
 
 ; --------------------------
 ; Commands
 ; --------------------------
 
 (defn up-vote! [state feature user]
-  (d/transact! conn [{:state/id -1
+  (d/transact! conn [{:db/id -1
                       :vote/feature feature
                       :vote/user user}]))
 
@@ -75,7 +76,7 @@
                                :where
                                [?e :vote/feature ?feature]
                                [?e :vote/user ?user]] state feature user))]
-    (d/transact! conn [[:state.fn/retractEntity e]])))
+    (d/transact! conn [[:db.fn/retractEntity e]])))
 
 ; --------------------------
 ; Page
@@ -87,9 +88,24 @@
   (link :rel "stylesheet" :href "css/main.css")
   (script :type "text/javascript" :id "lt_ws" :src "http://localhost:49191/socket.io/lighttable/ws.js"))
  (body
-  (h1 (loop-tpl :bindings [[id title description votes] features-with-votes]
-                (div (p (text "~{id} ~{title} ~{description} ~{votes}"))
-                     (button :on-click #(up-vote! @state @id @current-user-id) "+")
-                     (button :on-click #(down-vote! @state @id @current-user-id) "-"))))))
-
+  (div :class "pure-g content"
+       (h2 :class "pure-u-1 l-box" (text "You have some votes remaining"))
+       (loop-tpl :bindings [[id title description votes] features-with-votes]
+                 (div :class "pure-g pure-u-1 l-box"
+                      (div :class "pure-u-3-5"
+                           (span :class "title" (text "~{title}"))
+                           (span :class "description" (text "~{description}")))
+                      (div :class "pure-u-1-5"
+                           (span :class "votes" (text "~{votes}")))
+                      (div :class "pure-u-1-5"
+                           (button
+                            :class (cell= {:pure-button true
+                                           :button-vote true})
+                            :on-click #(up-vote! @state @id @current-user-id)
+                            "+")
+                            (button
+                             :class (cell= {:pure-button true
+                                            :button-unvote true})
+                             :on-click #(down-vote! @state @id @current-user-id)
+                             "-")))))))
 
