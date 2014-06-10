@@ -66,19 +66,31 @@
          [?e :feature/title ?t]
          [?e :feature/description ?d]] db))
 
-(defn vote-count [db id]
-  (if-let [[f c] (first (d/q '[:find ?feature (count ?v)
-                               :in $ ?feature
-                               :where
-                               [?v :vote/feature ?feature]] db id))]
-    c 0))
+(defc= user-vote-counts
+  (d/q '[:find ?f (count ?v)
+         :in $ ?u
+         :where
+         [?v :vote/feature ?f]
+         [?v :vote/user ?u]] db current-user-id))
+
+
+(defc= total-vote-counts
+  (d/q '[:find ?f (count ?v)
+         :in $
+         :where
+         [?v :vote/feature ?f]] db))
+
+(defc= combined-counts
+  (merge-with merge
+              (into {} (for [[id c] user-vote-counts] [id {:user c}]))
+              (into {} (for [[id c] total-vote-counts] [id {:total c}]))))
 
 (defc= features-with-votes
-  (->> (for [[id t d] features]
-         [id t d (vote-count db id)])
-       (sort-by last)
-       (reverse)))
-
+    (->> (for [[id t d] features]
+           (let [c (merge {:user 0 :total 0} (combined-counts id))]
+             [id t d (:total c) (:user c)]))
+         (sort-by #(% 3))
+         (reverse)))
 
 (defc= votes-remaining
   (let [max-votes (ffirst (d/q '[:find ?m
@@ -149,27 +161,33 @@
                   (input :type "text" :id "username" :placeholder "Username")
                   (button :on-click #(login! @db (val-id "username")) :class "pure-button pure-button-primary" "Log in"))
         (fieldset :do-toggle logged-in?
-                  (label (text "~{votes-remaining} votes remaining"))
-                  (label (text "Logged in as ~{current-user-name}"))
+                  (div :class "status"
+                       (p (text "~{votes-remaining} votes remaining"))
+                       (p (text "Logged in as ~{current-user-name}")))
                   (button :class "pure-button pure-button-primary" :on-click #(logout! @db) "Log out"))))
   (div :class "pure-g content"
-       (loop-tpl :bindings [[id title description votes] features-with-votes]
+       (loop-tpl :bindings [[id title description votes my-votes] features-with-votes]
                  (div :class "pure-g pure-u-1 l-box"
                       (div :class "pure-u-3-5"
                            (span :class "title" (text "~{title}"))
                            (span :class "description" (text "~{description}")))
                       (div :class "pure-u-1-5"
                            (span :class "votes" (text "~{votes}")))
-                      (let [votes-available (cell= (> votes-remaining 0))]
+                      (let [votes-available (cell= (> votes-remaining 0))
+                            voted-for-this (cell= (> my-votes 0))]
                         (div :class "pure-u-1-5"
                              :do-toggle logged-in?
                              (button
-                              :class "pure-button button-vote up-vote"
+                              :class (cell= {:pure-button true
+                                             :button-vote true
+                                             :up-vote votes-available})
                               :on-click #(when @votes-available
                                            (up-vote! @db @id @current-user-id))
                               "+")
                              (button
-                              :class "pure-button button-vote down-vote"
+                              :class (cell= {:pure-button true
+                                             :button-vote true
+                                             :down-vote voted-for-this})
                               :on-click #(down-vote! @db @id @current-user-id)
                               "-"))))))))
 

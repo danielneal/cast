@@ -6,7 +6,7 @@
   :project      'cast
   :version      "0.1.0-SNAPSHOT"
   :dependencies '[[tailrecursion/boot.task   "2.1.3"]
-                  [tailrecursion/hoplon      "5.8.3"]
+                  [tailrecursion/hoplon      "5.10.6"]
                   [org.clojure/clojurescript "0.0-2227"]
                   [tailrecursion/boot.ring   "0.1.0"]
                   [tailrecursion/castra "1.2.0"]

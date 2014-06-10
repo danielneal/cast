@@ -38,14 +38,21 @@
 }
 
 .header * {
-  vertical-align: bottom;
   display:inline-block;
+  vertical-align: middle;
   margin:0.2em;
 }
 
 .header .pure-form input,
 .header .pure-form .pure-button {
   font-size: 0.8em;
+}
+
+.header .status {
+  font-size:0.6em;
+}
+.header .status p {
+  display:block;
 }
 
 .button-vote {
