@@ -11,3 +11,7 @@
 
 (def get-entities
   (mkremote 'cast.api/get-entities entities error loading))
+
+(def transact!
+  (mkremote 'cast.api/transact! entities error loading))
+

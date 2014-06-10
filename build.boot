@@ -11,7 +11,8 @@
                   [tailrecursion/boot.ring   "0.1.0"]
                   [tailrecursion/castra "1.2.0"]
                   [com.datomic/datomic-free "0.9.4766"]
-                  [datascript "0.1.4"]]
+                  [datascript "0.1.4"]
+                  [org.clojure/algo.generic "0.1.0"]]
   :out-path     "resources/public"
   :src-paths    #{"src/hl" "src/cljs" "src/clj"})
 

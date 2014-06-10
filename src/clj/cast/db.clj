@@ -1,5 +1,6 @@
 (ns cast.db
-  (:require [datomic.api :as d]))
+  (:require [datomic.api :as d]
+            [clojure.algo.generic.functor :refer [fmap]]))
 
 ; -------------------------------
 ;  Database Setup
@@ -48,6 +49,7 @@
     :db/cardinality :db.cardinality/one
     :db.install/_attribute :db.part/db}])
 
+
 (def uri "datomic:mem://cast")
 
 (defn init! []
@@ -67,21 +69,15 @@
   "Takes a vector of entity ids and realizes them.
   If each entity is a vector (as returned from datomic,
   then assume the first element is the entity id."
-  [db entities]
-  (map (comp (partial into {}) d/touch (partial d/entity db) #(if (vector? %) (first %) %)) entities))
+  [db entity-ids]
+  (map (comp (partial fmap #(if (instance? datomic.query.EntityMap %) (:db/id %) %)) #(into {:db/id (:db/id %)} %) d/touch (partial d/entity db) #(if (vector? %) (first %) %)) entity-ids))
 
 ; -------------------------------
 ; Queries
 ; -------------------------------
 
-(defn all-with-attribute [attr]
-  (fn [db]
+(defn all-with-attribute [db attr]
     (d/q '[:find ?e
            :in $ ?a
-           :where [?e ?a ?v]] db attr)))
-
-(d/transact conn [{:db/id (d/tempid :db.part/user) :feature/title "Test" :feature/description "description"}
-                  {:db/id (d/tempid :db.part/user) :feature/title "Another" :feature/description "feature"}
-                  {:db/id (d/tempid :db.part/user) :user/name "Daniel" :user/max-votes 10}
-                  {:db/id (d/tempid :db.part/user) :user/name "Henry" :user/max-votes 10}])
+           :where [?e ?a ?v]] db attr))
 

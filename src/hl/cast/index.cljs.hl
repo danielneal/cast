@@ -14,32 +14,39 @@
 ; --------------------------
 
 (defn initializer [mode]
-  (if (= mode :local)
-    (fn []
-      (let [conn (d/create-conn)
-            db (cell nil)]
-        (d/listen! conn #(reset! db @conn))
-        {:transact! (fn [tx-data] (d/transact! conn tx-data))
-         :db db}))
-    (fn []
-      (js/setInterval rpc/get-entities 1000)
-      {:transact! (fn [tx-data] (rpc/transact! tx-data))
-       :db (cell= (d/with (d/empty-db) rpc/entities))})))
+  (let [schema {:vote/user {:db.valueType :db.type/ref}
+                :vote/feature {:db.valueType :db.type/ref}}]
+    (if (= mode :local)
+      (fn []
+        (let [conn (d/create-conn schema)
+              db (cell nil)]
+          (d/listen! conn #(reset! db @conn))
+          {:transact! (fn [tx-data]  (d/transact! conn tx-data))
+           :db db}))
+      (fn []
+        (let [db (cell= (d/with (d/empty-db schema) rpc/entities))]
+          (rpc/get-entities)
+          (js/setInterval rpc/get-entities 5000)
+          {:transact! (fn [tx-data] (rpc/transact! tx-data))
+           :db db })))))
 
-(def init! (initializer :local))
-
-(let [{t :transact!
+(let [init! (initializer :remote)
+      {t :transact!
        d :db} (init!)]
   (def transact! t)
   (def db d))
 
-(transact! [{:feature/title "A feature"
+(transact! [{:db/id -1
+             :feature/title "A feature"
              :feature/description "A descriptions"}
-            {:feature/title "Another feature"
+            {:db/id -2
+             :feature/title "Another feature"
              :feature/description "Another description"}
-            {:user/name "Daniel"
+            {:db/id -3
+             :user/name "Daniel"
              :user/max-votes 10}
-            {:user/name "Bob"
+            {:db/id -4
+             :user/name "Bob"
              :user/max-votes 10}])
 
 ; --------------------------
@@ -97,7 +104,8 @@
 ; --------------------------
 
 (defn up-vote! [db feature user]
-  (transact! [{:vote/feature feature
+  (transact! [{:db/id -1
+               :vote/feature feature
                :vote/user user}]))
 
 (defn down-vote! [db feature user]
@@ -109,8 +117,9 @@
     (transact! [[:db.fn/retractEntity e]])))
 
 (defn add-feature! [db title description]
-  (transact! [{:feature/title title
-                 :feature/description description}]))
+  (transact! [{:db/id -1
+               :feature/title title
+               :feature/description description}]))
 
 (defn login! [db username]
   (when-let [u (ffirst (d/q '[:find ?u
