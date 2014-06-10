@@ -3,11 +3,6 @@
                 [datascript :as d]
                 [cast.rpc :as rpc]))
 
-; --------------------------
-; Stem state
-; --------------------------
-(defc current-user-id nil)
-(defc conn nil)
 
 ; --------------------------
 ; Initialization
@@ -50,8 +45,23 @@
              :user/max-votes 10}])
 
 ; --------------------------
+; Input Cells
+; --------------------------
+
+(defc current-user-id nil)
+
+(defc frozen-sort-order nil)
+
+; --------------------------
 ; Derived state
 ; --------------------------
+
+(defc= current-user-name
+  (ffirst (d/q '[:find ?n
+                 :in $ ?u
+                 :where [?u :user/name ?n]] db current-user-id)))
+
+(defc= logged-in? (not (nil? current-user-id)))
 
 (defc= users
   (d/q '[:find ?e
@@ -86,11 +96,18 @@
               (into {} (for [[id c] total-vote-counts] [id {:total c}]))))
 
 (defc= features-with-votes
-    (->> (for [[id t d] features]
-           (let [c (merge {:user 0 :total 0} (combined-counts id))]
-             [id t d (:total c) (:user c)]))
-         (sort-by #(% 3))
-         (reverse)))
+  (into [] (for [[id t d] features]
+             (let [c (merge {:user 0 :total 0} (combined-counts id))]
+               [id t d (:total c) (:user c)]))))
+
+(defc= sort-order
+  (->> (map vector features-with-votes (iterate inc 0))
+       (sort-by #(get-in % [0 3]))
+       (reverse)
+       (map #(get % 1))))
+
+(defc= sorted-features
+  (map #(get features-with-votes %) (if logged-in? frozen-sort-order sort-order)))
 
 (defc= votes-remaining
   (let [max-votes (ffirst (d/q '[:find ?m
@@ -103,13 +120,6 @@
                                      [?v :vote/user ?u]
                                      [?v :vote/feature ?f]] db current-user-id))]
     (- max-votes current-votes)))
-
-(defc= current-user-name
-  (ffirst (d/q '[:find ?n
-                 :in $ ?u
-                 :where [?u :user/name ?n]] db current-user-id)))
-
-(defc= logged-in? (not (nil? current-user-id)))
 
 ; --------------------------
 ; Commands
@@ -137,6 +147,7 @@
   (when-let [u (ffirst (d/q '[:find ?u
                               :in $ ?n
                               :where [?u :user/name ?n]] db username))]
+    (reset! frozen-sort-order @sort-order)
     (reset! current-user-id u)))
 
 
@@ -166,7 +177,7 @@
                        (p (text "Logged in as ~{current-user-name}")))
                   (button :class "pure-button pure-button-primary" :on-click #(logout! @db) "Log out"))))
   (div :class "pure-g content"
-       (loop-tpl :bindings [[id title description votes my-votes] features-with-votes]
+       (loop-tpl :bindings [[id title description votes my-votes] sorted-features]
                  (div :class "pure-g pure-u-1 l-box"
                       (div :class "pure-u-3-5"
                            (span :class "title" (text "~{title}"))
