@@ -10,7 +10,7 @@
 (defc conn nil)
 
 ; --------------------------
-; DB Initialization
+; Initialization
 ; --------------------------
 
 (defn initializer [mode]
@@ -32,8 +32,6 @@
        d :db} (init!)]
   (def transact! t)
   (def db d))
-
-(println transact!)
 
 (transact! [{:feature/title "A feature"
              :feature/description "A descriptions"}
@@ -123,8 +121,6 @@
 
 (defn logout! [db]
   (reset! current-user-id nil))
-
-
 
 ; --------------------------
 ; Page
