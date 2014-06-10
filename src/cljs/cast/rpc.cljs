@@ -5,16 +5,9 @@
    [tailrecursion.javelin]
    [tailrecursion.castra :refer [mkremote]]))
 
-(defc state {:features nil})
+(defc entities nil)
 (defc error nil)
 (defc loading [])
 
-(def get-state
-  (mkremote 'cast.api/get-state state error loading))
-
-(def add-feature
-  (mkremote 'cast.api/add-feature state error loading))
-
-(defn init []
-  (get-state)
-  (js/setInterval get-state 2000))
+(def get-entities
+  (mkremote 'cast.api/get-entities entities error loading))

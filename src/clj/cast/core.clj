@@ -15,7 +15,9 @@
    [ring.middleware.file             :refer [wrap-file]]
    [ring.middleware.file-info        :refer [wrap-file-info]]
    [tailrecursion.castra.handler     :refer [castra]]
-   [cast.db :as db]))
+   [cast.db :as db]
+   [clojure.tools.nrepl.server :as nrepl]
+   [lighttable.nrepl.handler/lighttable-ops :as light]))
 
 (def server (atom nil))
 

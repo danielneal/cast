@@ -1,47 +1,76 @@
 (page "index.html"
       (:require [tailrecursion.hoplon.storage-atom :refer [local-storage]]
-                [datascript :as d]))
+                [datascript :as d]
+                [cast.rpc :as rpc]))
 
 ; --------------------------
-; Input Cells
+; Stem state
 ; --------------------------
-
-(defc state nil)
 (defc current-user-id nil)
+(defc conn nil)
 
 ; --------------------------
-; Datascript set up
+; DB Initialization
 ; --------------------------
 
-(def conn (d/create-conn))
+(defn initializer [mode]
+  (if (= mode :local)
+    (fn []
+      (let [conn (d/create-conn)
+            db (cell nil)]
+        (d/listen! conn #(reset! db @conn))
+        {:transact! (fn [tx-data] (d/transact! conn tx-data))
+         :db db}))
+    (fn []
+      (js/setInterval rpc/get-entities 1000)
+      {:transact! (fn [tx-data] (rpc/transact! tx-data))
+       :db (cell= (d/with (d/empty-db) rpc/entities))})))
+
+(def init! (initializer :local))
+
+(let [{t :transact!
+       d :db} (init!)]
+  (def transact! t)
+  (def db d))
+
+(println transact!)
+
+(transact! [{:feature/title "A feature"
+             :feature/description "A descriptions"}
+            {:feature/title "Another feature"
+             :feature/description "Another description"}
+            {:user/name "Daniel"
+             :user/max-votes 10}
+            {:user/name "Bob"
+             :user/max-votes 10}])
 
 ; --------------------------
-; Formula Cells
+; Derived state
 ; --------------------------
 
 (defc= users
   (d/q '[:find ?e
          :in $
          :where
-         [?e :user/name ?n]] state))
+         [?e :user/name ?n]] db))
 
 (defc= features
   (d/q '[:find ?e ?t ?d
          :in $
          :where
          [?e :feature/title ?t]
-         [?e :feature/description ?d]] state))
+         [?e :feature/description ?d]] db))
 
-(defn vote-count [state id]
+(defn vote-count [db id]
   (if-let [[f c] (first (d/q '[:find ?feature (count ?v)
                                :in $ ?feature
                                :where
-                               [?v :vote/feature ?feature]] state id))]
+                               [?v :vote/feature ?feature]] db id))]
     c 0))
 
 (defc= features-with-votes
   (->> (for [[id t d] features]
-         [id t d (vote-count state id)])
+         [id t d (vote-count db id)])
        (sort-by last)
        (reverse)))
 
@@ -50,18 +79,18 @@
   (let [max-votes (ffirst (d/q '[:find ?m
                                  :in $ ?u
                                  :where
-                                 [?u :user/max-votes ?m]] state current-user-id))
+                                 [?u :user/max-votes ?m]] db current-user-id))
         current-votes (ffirst (d/q '[:find (count ?v)
                                      :in $ ?u
                                      :where
                                      [?v :vote/user ?u]
-                                     [?v :vote/feature ?f]] state current-user-id))]
+                                     [?v :vote/feature ?f]] db current-user-id))]
     (- max-votes current-votes)))
 
 (defc= current-user-name
   (ffirst (d/q '[:find ?n
                  :in $ ?u
-                 :where [?u :user/name ?n]] state current-user-id)))
+                 :where [?u :user/name ?n]] db current-user-id)))
 
 (defc= logged-in? (not (nil? current-user-id)))
 
@@ -69,51 +98,33 @@
 ; Commands
 ; --------------------------
 
-(defn up-vote! [state feature user]
-  (d/transact! conn [{:db/id -1
-                      :vote/feature feature
-                      :vote/user user}]))
+(defn up-vote! [db feature user]
+  (transact! [{:vote/feature feature
+               :vote/user user}]))
 
-(defn down-vote! [state feature user]
+(defn down-vote! [db feature user]
   (when-let [[e] (first (d/q '[:find ?e
                                :in $ ?feature ?user
                                :where
                                [?e :vote/feature ?feature]
-                               [?e :vote/user ?user]] state feature user))]
-    (d/transact! conn [[:db.fn/retractEntity e]])))
+                               [?e :vote/user ?user]] db feature user))]
+    (transact! [[:db.fn/retractEntity e]])))
 
-(defn add-feature! [state title description]
-  (d/transact! conn [{:db/id -1
-                      :feature/title title
-                      :feature/description description}]))
+(defn add-feature! [db title description]
+  (transact! [{:feature/title title
+                 :feature/description description}]))
 
-(defn login! [state username]
+(defn login! [db username]
   (when-let [u (ffirst (d/q '[:find ?u
                               :in $ ?n
-                              :where [?u :user/name ?n]] state username))]
+                              :where [?u :user/name ?n]] db username))]
     (reset! current-user-id u)))
 
 
-(defn logout! [state]
+(defn logout! [db]
   (reset! current-user-id nil))
 
 
-(defn init! []
-  (d/listen! conn #(reset! state @conn))
-  (d/transact! conn [{:db/id -1
-                      :feature/title "A feature"
-                      :feature/description "A descriptions"}
-                     {:db/id -2
-                      :feature/title "Another feature"
-                      :feature/description "Another description"}
-                     {:db/id -3
-                      :user/name "Daniel"
-                      :user/max-votes 10}
-                     {:db/id -4
-                      :user/name "Bob"
-                      :user/max-votes 10}]))
-
-(init!)
 
 ; --------------------------
 ; Page
@@ -131,11 +142,11 @@
         :class "pure-form"
         (fieldset :do-toggle (cell= (not logged-in?))
                   (input :type "text" :id "username" :placeholder "Username")
-                  (button :on-click #(login! @state (val-id "username")) :class "pure-button pure-button-primary" "Log in"))
+                  (button :on-click #(login! @db (val-id "username")) :class "pure-button pure-button-primary" "Log in"))
         (fieldset :do-toggle logged-in?
                   (label (text "~{votes-remaining} votes remaining"))
                   (label (text "Logged in as ~{current-user-name}"))
-                  (button :class "pure-button pure-button-primary" :on-click #(logout! @state) "Log out"))))
+                  (button :class "pure-button pure-button-primary" :on-click #(logout! @db) "Log out"))))
   (div :class "pure-g content"
        (loop-tpl :bindings [[id title description votes] features-with-votes]
                  (div :class "pure-g pure-u-1 l-box"
@@ -150,10 +161,10 @@
                              (button
                               :class "pure-button button-vote up-vote"
                               :on-click #(when @votes-available
-                                           (up-vote! @state @id @current-user-id))
+                                           (up-vote! @db @id @current-user-id))
                               "+")
                              (button
                               :class "pure-button button-vote down-vote"
-                              :on-click #(down-vote! @state @id @current-user-id)
+                              :on-click #(down-vote! @db @id @current-user-id)
                               "-"))))))))
 
