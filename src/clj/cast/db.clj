@@ -11,6 +11,7 @@
     :db/ident :feature/title
     :db/valueType :db.type/string
     :db/cardinality :db.cardinality/one
+    :db/unique :db.unique/identity
     :db/doc "The title of a feature"
     :db.install/_attribute :db.part/db}
 
@@ -44,6 +45,7 @@
 
    {:db/id (d/tempid :db.part/db)
     :db/ident :user/name
+    :db/unique :db.unique/identity
     :db/doc "The name of the user"
     :db/valueType :db.type/string
     :db/cardinality :db.cardinality/one
@@ -58,6 +60,7 @@
 
    {:db/id (d/tempid :db.part/db)
     :db/ident :page/name
+    :db/unique :db.unique/identity
     :db/doc "The name for a page (of features)"
     :db/valueType :db.type/string
     :db/cardinality :db.cardinality/one
