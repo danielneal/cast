@@ -15,8 +15,9 @@
                   [datascript "0.1.5"]
                   [org.clojure/algo.generic "0.1.0"]
                   [clj-http "0.9.2"]
-
+                  [org.clojure/core.match "0.2.1"]
                   [digest "1.4.4"]]
+
   :out-path     "resources/public"
   :src-paths    #{"src/hl" "src/cljs" "src/clj" "src/semantic"})
 

@@ -16,4 +16,3 @@
   (let [processed-tx-data (resolve-ids tx-data)]
     (d/transact cast-db/conn processed-tx-data)
     (get-entities)))
-
