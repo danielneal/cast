@@ -39,7 +39,11 @@
              :user/max-votes 10}
             {:db/id -4
              :user/name "Bob"
-             :user/max-votes 10}])
+             :user/max-votes 10}
+            {:db/id -5
+             :page/name "Ida"}
+            {:db/id -6
+             :page/name "SugarCRM"}])
 
 ; --------------------------
 ; Input Cells
@@ -80,12 +84,17 @@
          [?v :vote/feature ?f]
          [?v :vote/user ?u]] db current-user-id))
 
-
 (defc= total-vote-counts
   (d/q '[:find ?f (count ?v)
          :in $
          :where
          [?v :vote/feature ?f]] db))
+
+(defc= pages
+  (d/q '[:find ?p ?n
+         :in $
+         :where
+         [?p :page/name ?n]] db))
 
 (defc= combined-counts
   (merge-with merge
@@ -162,36 +171,50 @@
   (div :class "ui inverted fixed blue main menu"
        (a :class "active item" "CAST")
        (div :class "right menu"
+            :do-toggle logged-in?
             (div :class "item"
-                 :do-toggle (cell= (not logged-in?))
-                 (div :class "ui small action input"
-                      (input :type "text" :id "username" :placeholder "Username")
-                      (div :class "ui blue button" :on-click #(login! @db (val-id "username")) "Log in")))
-            (div :class "item"
-                 :do-toggle logged-in?
                  (text "~{votes-remaining} votes left"))
             (div :class "ui simple dropdown item"
-                 :do-toggle logged-in?
                  (text "~{current-user-name}")
                  (div :class "menu"
-                      (div :class "item" :on-click #(logout! @db) "Log out"))))))
+                      (loop-tpl :bindings [[id page-name] pages]
+                                :reverse true
+                                (div :class "item" page-name))
+                      (div :class "item" :on-click #(logout! @db) "Log out")))))
   (div :class "ui page grid"
-       (loop-tpl :bindings [[id title description votes my-votes] sorted-features]
-                 (let [votes-available (cell= (> votes-remaining 0))
-                       voted-for-this (cell= (> my-votes 0))]
-                   (div :class "sixteen wide column"
-                        (div :class "ui blue segment"
-                             (h4 :class "ui left floated header" (text "~{title}"))
-                             (div :class "ui mini buttons"
-                                  :do-toggle logged-in?
-                                  (div :class "ui green icon button"
-                                       (i :class "icon plus"
-                                          :on-click #(when @votes-available
-                                                       (up-vote! @db @id @current-user-id))))
-                                  (div :class "ui red icon button"
-                                       (i :class "icon minus"
-                                          :on-click #(down-vote! @db @id @current-user-id))))
-                             (div :class "ui top right attached label" (text "~{votes}"))
-                             (div :class "ui clearing divider")
-                             (p (text "~{description}"))))))))
+       (div :class "ui form segment"
+            :do-toggle (cell= (not logged-in?))
+            (div :class "field"
+                 (label "Username")
+                 (div :class "ui left labeled icon input"
+                      (input :type "text" :placeholder "Username")
+                      (i :class "user icon")
+                      (div :class "ui corner label"
+                           (i :class "icon asterisk"))))
+            (div :class "field"
+                 (label "Password")
+                 (div :class "ui left labeled icon input"
+                      (input :type "password")
+                      (i :class "lock icon")
+                      (div :class"ui corner label"
+                           (i :class "icon asterisk")))))
+       (div :do-toggle logged-in?
+        (loop-tpl :bindings [[id title description votes my-votes] sorted-features]
+                  (let [votes-available (cell= (> votes-remaining 0))
+                        voted-for-this (cell= (> my-votes 0))]
+                    (div :class "sixteen wide column"
+                         (div :class "ui blue segment"
+                              (h4 :class "ui left floated header" (text "~{title}"))
+                              (div :class "ui mini buttons"
+                                   :do-toggle logged-in?
+                                   (div :class "ui green icon button"
+                                        (i :class "icon plus"
+                                           :on-click #(when @votes-available
+                                                        (up-vote! @db @id @current-user-id))))
+                                   (div :class "ui red icon button"
+                                        (i :class "icon minus"
+                                           :on-click #(down-vote! @db @id @current-user-id))))
+                              (div :class "ui top right attached label" (text "~{votes}"))
+                              (div :class "ui clearing divider")
+                              (p (text "~{description}"))))))))))
 

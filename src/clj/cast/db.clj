@@ -47,6 +47,13 @@
     :db/doc "The maximum number of votes this user can have"
     :db/valueType :db.type/long
     :db/cardinality :db.cardinality/one
+    :db.install/_attribute :db.part/db}
+
+   {:db/id (d/tempid :db.part/db)
+    :db/ident :page/name
+    :db/doc "The name for a page (of features)"
+    :db/valueType :db.type/string
+    :db/cardinality :db.cardinality/one
     :db.install/_attribute :db.part/db}])
 
 
