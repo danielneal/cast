@@ -14,10 +14,13 @@ h1,h2,h3,h4,h5,p {
   font-family: "Source Sans Pro", "Helvetica Neue", "Helvetica", "Arial", sans-serif;
 }
 
-.main.menu {
-  height:40px;
-}
-.ui.page.grid {
+.container {
   position:relative;
-  top:40px;
+  top:4em;
+  margin-left:5%;
+  margin-right:5%;
+}
+
+.ui.segment {
+  margin:2em;
 }
