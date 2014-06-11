@@ -8,26 +8,23 @@
 ; Initialization
 ; --------------------------
 
-(defn initializer [mode]
+(defn init! [mode]
   (let [schema {:vote/user {:db.valueType :db.type/ref}
                 :vote/feature {:db.valueType :db.type/ref}}]
     (if (= mode :local)
-      (fn []
         (let [conn (d/create-conn schema)
               db (cell nil)]
           (d/listen! conn #(reset! db @conn))
           {:transact! (fn [tx-data]  (d/transact! conn tx-data))
            :db db}))
-      (fn []
+
         (let [db (cell= (d/with (d/empty-db schema) rpc/entities))]
           (rpc/get-entities)
           (js/setInterval rpc/get-entities 5000)
           {:transact! (fn [tx-data] (rpc/transact! tx-data))
-           :db db })))))
+           :db db })))
 
-(let [init! (initializer :remote)
-      {t :transact!
-       d :db} (init!)]
+(let [{t :transact! d :db}  (init! :remote)]
   (def transact! t)
   (def db d))
 
