@@ -20,6 +20,7 @@
    [lighttable.nrepl.handler/lighttable-ops :as light]))
 
 (def server (atom nil))
+(def nrepl-server (atom nil))
 
 (defn app [port public-path]
   (->
@@ -28,6 +29,9 @@
     (wrap-file public-path)
     (wrap-file-info)
     (run-jetty {:join? false :port port})))
+
+(defn start-nrepl-server [port]
+  (swap! nrepl-server #(or % (nrepl/start-server :port port (nrepl/default-handler light/lighttable-ops)))))
 
 (defn start-server
   "Start castra demo server (port 33333)."
@@ -38,6 +42,7 @@
   [port public-path]
   (.mkdirs (java.io.File. public-path))
   (start-server port public-path)
+  (start-nrepl-sever 50000)
   (fn [continue]
     (fn [event]
       (continue event))))

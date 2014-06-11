@@ -9,8 +9,9 @@
 ; --------------------------
 
 (defn init! [mode]
-  (let [schema {:vote/user {:db.valueType :db.type/ref}
-                :vote/feature {:db.valueType :db.type/ref}}]
+  (let [schema {:vote/user {:db/valueType :db.type/ref}
+                :vote/feature {:db/valueType :db.type/ref}
+                :feature/page {:db/valueType :db.type/ref}}]
     (if (= mode :local)
       (let [conn (d/create-conn schema)
             db (cell nil)]
@@ -24,32 +25,40 @@
         {:transact! (fn [tx-data] (rpc/transact! tx-data))
          :db db }))))
 
-(let [{t :transact! d :db}  (init! :local)]
+(let [{t :transact! d :db}  (init! :remote)]
   (def transact! t)
   (def db d))
 
 (transact! [{:db/id -1
-             :feature/title "A feature"
-             :feature/description "A descriptions"}
-            {:db/id -2
-             :feature/title "Another feature"
-             :feature/description "Another description"}
-            {:db/id -3
+             :page/name "Ida"}
+             {:db/id -2
+             :page/name "SugarCRM"}
+             {:db/id -3
+             :feature/title "Ida feature 1"
+             :feature/description "A descriptions"
+              :feature/page -1}
+            {:db/id -4
+             :feature/title "SugarCRm feature 2 "
+             :feature/description "Another description"
+             :feature/page -2}
+             {:db/id -5
+             :feature/title "Ida feature2 "
+             :feature/description "Another description"
+              :feature/page -1}
+             {:db/id -6
              :user/name "Daniel"
              :user/max-votes 10}
-            {:db/id -4
+             {:db/id -7
              :user/name "Bob"
-             :user/max-votes 10}
-            {:db/id -5
-             :page/name "Ida"}
-            {:db/id -6
-             :page/name "SugarCRM"}])
+             :user/max-votes 10}])
 
 ; --------------------------
 ; Input Cells
 ; --------------------------
 
 (defc current-user-id nil)
+
+(defc current-page nil)
 
 ; --------------------------
 ; Derived state
@@ -70,23 +79,26 @@
 
 (defc= features
   (d/q '[:find ?e ?t ?d
-         :in $
+         :in $ ?p
          :where
          [?e :feature/title ?t]
-         [?e :feature/description ?d]] db))
+         [?e :feature/description ?d]
+         [?e :feature/page ?p]] db current-page))
 
 (defc= user-vote-counts
   (d/q '[:find ?f (count ?v)
-         :in $ ?u
+         :in $ ?u ?p
          :where
          [?v :vote/feature ?f]
-         [?v :vote/user ?u]] db current-user-id))
+         [?v :vote/user ?u]
+         [?f :feature/page ?p]] db current-user-id current-page))
 
 (defc= total-vote-counts
   (d/q '[:find ?f (count ?v)
          :in $
          :where
-         [?v :vote/feature ?f]] db))
+         [?v :vote/feature ?f]
+         [?f :feature/page ?p]] db current-page))
 
 (defc= pages
   (d/q '[:find ?p ?n
@@ -121,8 +133,7 @@
         current-votes (ffirst (d/q '[:find (count ?v)
                                      :in $ ?u
                                      :where
-                                     [?v :vote/user ?u]
-                                     [?v :vote/feature ?f]] db current-user-id))]
+                                     [?v :vote/user ?u]] db current-user-id))]
     (- max-votes current-votes)))
 
 ; --------------------------
@@ -151,10 +162,12 @@
   (when-let [u (ffirst (d/q '[:find ?u
                               :in $ ?n
                               :where [?u :user/name ?n]] db username))]
+    (reset! current-page (ffirst @pages))
     (reset! current-user-id u)))
 
 
 (defn logout! [db]
+  (reset! current-page nil)
   (reset! current-user-id nil))
 
 ; --------------------------
@@ -176,7 +189,8 @@
                  (div :class "menu"
                       (loop-tpl :bindings [[id page-name] pages]
                                 :reverse true
-                                (div :class "item" page-name))
+                                (div :class "item"
+                                     :on-click #(reset! current-page @id) page-name))
                       (div :class "item" :on-click #(logout! @db) "Log out")))))
   (div :class "container"
        (div :class "ui form segment"

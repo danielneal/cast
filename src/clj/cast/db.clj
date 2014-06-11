@@ -22,6 +22,13 @@
     :db.install/_attribute :db.part/db}
 
    {:db/id (d/tempid :db.part/db)
+    :db/ident :feature/page
+    :db/valueType :db.type/ref
+    :db/cardinality :db.cardinality/one
+    :db/doc "The page a feature is on"
+    :db.install/_attribute :db.part/db}
+
+   {:db/id (d/tempid :db.part/db)
     :db/ident :vote/user
     :db/valueType :db.type/ref
     :db/cardinality :db.cardinality/one
@@ -56,7 +63,6 @@
     :db/cardinality :db.cardinality/one
     :db.install/_attribute :db.part/db}])
 
-
 (def uri "datomic:mem://cast")
 
 (defn init! []
@@ -87,4 +93,9 @@
     (d/q '[:find ?e
            :in $ ?a
            :where [?e ?a ?v]] db attr))
+
+(defn ref? [db attr]
+  (ffirst (d/q '[:find ?a
+                 :in $ ?a
+                 :where [?a :db/valueType :db.type/ref]] db attr)))
 
