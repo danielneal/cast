@@ -12,19 +12,19 @@
   (let [schema {:vote/user {:db.valueType :db.type/ref}
                 :vote/feature {:db.valueType :db.type/ref}}]
     (if (= mode :local)
-        (let [conn (d/create-conn schema)
-              db (cell nil)]
-          (d/listen! conn #(reset! db @conn))
-          {:transact! (fn [tx-data]  (d/transact! conn tx-data))
-           :db db}))
+      (let [conn (d/create-conn schema)
+            db (cell nil)]
+        (d/listen! conn #(reset! db @conn))
+        {:transact! (fn [tx-data]  (d/transact! conn tx-data))
+         :db db})
 
-        (let [db (cell= (d/with (d/empty-db schema) rpc/entities))]
-          (rpc/get-entities)
-          (js/setInterval rpc/get-entities 5000)
-          {:transact! (fn [tx-data] (rpc/transact! tx-data))
-           :db db })))
+      (let [db (cell= (d/with (d/empty-db schema) rpc/entities))]
+        (rpc/get-entities)
+        (js/setInterval rpc/get-entities 5000)
+        {:transact! (fn [tx-data] (rpc/transact! tx-data))
+         :db db }))))
 
-(let [{t :transact! d :db}  (init! :remote)]
+(let [{t :transact! d :db}  (init! :local)]
   (def transact! t)
   (def db d))
 
@@ -157,45 +157,40 @@
 
 (html
  (head
-  (link :rel "stylesheet" :href "http://yui.yahooapis.com/pure/0.5.0/pure-min.css")
-  (link :rel "stylesheet" :href "css/main.css")
-  (script :type "text/javascript" :id "lt_ws" :src "http://localhost:49191/socket.io/lighttable/ws.js"))
+  (link :rel "stylesheet" :href "css/main.css"))
  (body
-  (div :class "header"
-       (h1 "Cast")
-       (form
-        :class "pure-form"
-        (fieldset :do-toggle (cell= (not logged-in?))
-                  (input :type "text" :id "username" :placeholder "Username")
-                  (button :on-click #(login! @db (val-id "username")) :class "pure-button pure-button-primary" "Log in"))
-        (fieldset :do-toggle logged-in?
-                  (div :class "status"
-                       (p (text "~{votes-remaining} votes remaining"))
-                       (p (text "Logged in as ~{current-user-name}")))
-                  (button :class "pure-button pure-button-primary" :on-click #(logout! @db) "Log out"))))
-  (div :class "pure-g content"
+  (div :class "ui inverted blue main menu"
+       (a :class "item" "Cast")
+       (div :class "right menu"
+            (div :class "item"
+                 :do-toggle (cell= (not logged-in?))
+                 (div :class "ui action input"
+                      (input :type "text" :id "username" :placeholder "Username")
+                      (div :class "ui blue button" :on-click #(login! @db (val-id "username")) "Log in")))
+            (div :class "ui simple dropdown item"
+                 :do-toggle logged-in?
+                 (text "~{current-user-name}")
+                 (div :class "menu"
+                      (div :class "item" :on-click #(logout! @db) "Log out"))))))
+  (div :class "ui page grid"
        (loop-tpl :bindings [[id title description votes my-votes] sorted-features]
-                 (div :class "pure-g pure-u-1 l-box"
-                      (div :class "pure-u-3-5"
-                           (span :class "title" (text "~{title}"))
-                           (span :class "description" (text "~{description}")))
-                      (div :class "pure-u-1-5"
-                           (span :class "votes" (text "~{votes}")))
-                      (let [votes-available (cell= (> votes-remaining 0))
-                            voted-for-this (cell= (> my-votes 0))]
-                        (div :class "pure-u-1-5"
-                             :do-toggle logged-in?
-                             (button
-                              :class (cell= {:pure-button true
-                                             :button-vote true
-                                             :up-vote votes-available})
-                              :on-click #(when @votes-available
-                                           (up-vote! @db @id @current-user-id))
-                              "+")
-                             (button
-                              :class (cell= {:pure-button true
-                                             :button-vote true
-                                             :down-vote voted-for-this})
-                              :on-click #(down-vote! @db @id @current-user-id)
-                              "-"))))))))
+                 (div :class "sixteen wide column"
+                      (div :class "ui segment"
+                           (h3 :class "ui left floated header" (text "~{title}"))
+                           (div :class "ui top right blue attached label" "Votes" (div :class "detail" (text "~{votes}")))
+                           (div :class "ui clearing divider")
+                           (p (text "~{description}"))
+                           (let [votes-available (cell= (> votes-remaining 0))
+                                 voted-for-this (cell= (> my-votes 0))]
+                             (div :do-toggle logged-in?
+                                  :class "ui menu"
+                                  (div
+                                   :class "ui button increase item"
+                                   :on-click #(when @votes-available
+                                                (up-vote! @db @id @current-user-id))
+                                   "+")
+                                  (div
+                                   :class "ui button decrease item"
+                                   :on-click #(down-vote! @db @id @current-user-id)
+                                   "-"))))))))
 

@@ -14,7 +14,7 @@
                   [datascript "0.1.4"]
                   [org.clojure/algo.generic "0.1.0"]]
   :out-path     "resources/public"
-  :src-paths    #{"src/hl" "src/cljs" "src/clj"})
+  :src-paths    #{"src/hl" "src/cljs" "src/clj" "src/semantic"})
 
 ;; Static resources (css, images, etc.):
 (add-sync! (get-env :out-path) #{"assets"})
