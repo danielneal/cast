@@ -157,9 +157,9 @@
 
 (html
  (head
-  (link :rel "stylesheet" :href "css/main.css"))
+  (link :rel "stylesheet" :type "text/css" :href "css/main.css"))
  (body
-  (div :class "ui inverted blue main menu"
+  (div :class "ui inverted fixed blue main menu"
        (a :class "active item" "CAST")
        (div :class "right menu"
             (div :class "item"
