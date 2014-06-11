@@ -179,7 +179,13 @@
   (link :rel "stylesheet" :type "text/css" :href "css/main.css"))
  (body
   (div :class "ui inverted fixed blue main menu"
-       (a :class "active item" "CAST")
+       (div :class "ui simple dropdown item" "CAST"
+            (div :class "menu"
+                 :do-toggle logged-in?
+                 (loop-tpl :bindings [[id page-name] pages]
+                           :reverse true
+                           (div :class "item"
+                                :on-click #(reset! current-page @id) page-name))))
        (div :class "right menu"
             :do-toggle logged-in?
             (div :class "item"
@@ -187,10 +193,6 @@
             (div :class "ui simple dropdown item"
                  (text "~{current-user-name}")
                  (div :class "menu"
-                      (loop-tpl :bindings [[id page-name] pages]
-                                :reverse true
-                                (div :class "item"
-                                     :on-click #(reset! current-page @id) page-name))
                       (div :class "item" :on-click #(logout! @db) "Log out")))))
   (div :class "container"
        (div :class "ui form segment"
