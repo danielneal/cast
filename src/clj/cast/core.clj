@@ -8,45 +8,68 @@
 
 (ns cast.core
   (:require
-   [ring.adapter.jetty               :refer [run-jetty]]
-   [ring.middleware.resource         :refer [wrap-resource]]
-   [ring.middleware.session          :refer [wrap-session]]
-   [ring.middleware.session.cookie   :refer [cookie-store]]
-   [ring.middleware.file             :refer [wrap-file]]
-   [ring.middleware.file-info        :refer [wrap-file-info]]
-   [tailrecursion.castra.handler     :refer [castra]]
-   [cast.db :as db]
-   [clojure.tools.nrepl.server :as nrepl]
-   [lighttable.nrepl.handler/lighttable-ops :as light]))
+   [taoensso.sente :as sente]
+   [compojure.route :as route]
+   [org.httpkit.server :as httpkit]
+   [compojure.core :refer [GET POST defroutes]]
+   [tailrecursion.boot.core :as boot :refer [deftask get-env set-env!]]
+   [tailrecursion.boot.task.ring :as r]))
 
-(def server (atom nil))
+; ----------------------
+; Websocket setup
+; ----------------------
+
+(let [{:keys [ch-recv send-fn ajax-post-fn ajax-get-or-ws-handshake-fn
+              connected-uids]}
+      (sente/make-channel-socket! {})]
+  (def ring-ajax-post                ajax-post-fn)
+  (def ring-ajax-get-or-ws-handshake ajax-get-or-ws-handshake-fn)
+  (def ch-chsk                       ch-recv) ; ChannelSocket's receive channel
+  (def chsk-send!                    send-fn) ; ChannelSocket's send API fn
+  (def connected-uids                connected-uids)) ; Watchable, read-only atom
+
+(defroutes websocket-routes
+  (GET  "/chsk" req (ring-ajax-get-or-ws-handshake req))
+  (POST "/chsk" req (ring-ajax-post                req)))
+
+; ----------------------
+; Custom boot tasks
+; ----------------------
+
+(deftask http-kit
+  "Task to start an http-kit server (replacement for the built in ring jetty adapter)"
+  [handler {:keys [port join?] :or {port 8000 join? false}}]
+  (println "HTTPKit server stored in atom here: #'tailrecursion.boot.task.ring/server...")
+  (boot/with-pre-wrap
+    (swap! r/server #(or % (-> (@r/middleware (comp handler r/handle-404)) (httpkit/run-server {:port port :join? join?}))))))
+
+(deftask start-server
+  "Starts the app"
+  [& {:keys [port join? key docroot]
+      :or {port    8000
+           join?   false
+           key     "a 16-byte secret"
+           docroot (get-env :out-path)}}]
+  (comp (r/head) (r/dev-mode) (r/cors #".*localhost.*")
+        (r/session-cookie key) (r/files docroot) (r/reload)
+        (http-kit websocket-routes {:port port :join join?})))
+
 (def nrepl-server (atom nil))
 
-(defn app [port public-path]
-  (->
-    (castra 'cast.api)
-    (wrap-session {:store (cookie-store {:key "a 16-byte secret"})})
-    (wrap-file public-path)
-    (wrap-file-info)
-    (run-jetty {:join? false :port port})))
+(deftask repl-light
+  "Launch a lighttable nrepl in the project."
+  []
+  (set-env! :dependencies
+            '[[lein-light-nrepl "0.0.13"]
+              [org.clojure/tools.nrepl "0.2.3"]])
+  (boot/with-pre-wrap
+    (require 'clojure.tools.nrepl.server)
+    (require 'lighttable.nrepl.handler)
+    (let [start-server (resolve 'clojure.tools.nrepl.server/start-server)
+          default-handler (resolve 'clojure.tools.nrepl.server/default-handler)
+          lighttable-ops (resolve 'lighttable.nrepl.handler/lighttable-ops)]
+      (swap! nrepl-server #(or % (start-server
+                                  :port 0
+                                  :handler (default-handler lighttable-ops))))
+      (println "nrepl server running on " (:port @nrepl-server)))))
 
-(defn start-nrepl-server [port]
-  (swap! nrepl-server #(or % (nrepl/start-server :port port (nrepl/default-handler light/lighttable-ops)))))
-
-(defn start-server
-  "Start castra demo server (port 33333)."
-  [port public-path]
-  (swap! server #(or % (app port public-path))))
-
-(defn run-task
-  [port public-path]
-  (.mkdirs (java.io.File. public-path))
-  (start-server port public-path)
-  (start-nrepl-sever 50000)
-  (fn [continue]
-    (fn [event]
-      (continue event))))
-
-(defn -main
-  "I don't do a whole lot."
-  [& args])

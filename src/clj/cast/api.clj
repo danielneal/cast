@@ -1,7 +1,8 @@
 (ns cast.api
   (:require [tailrecursion.castra :refer [defrpc]]
             [cast.db :as cast-db]
-            [datomic.api :as d]))
+            [datomic.api :as d]
+            [clojure.core.match :refer [match]]))
 
 (defrpc get-entities []
   (let [db (d/db cast-db/conn)
@@ -16,3 +17,7 @@
   (let [processed-tx-data (resolve-ids tx-data)]
     (d/transact cast-db/conn processed-tx-data)
     (get-entities)))
+
+
+(defrpc login! [username password]
+  (get-entities))

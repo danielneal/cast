@@ -1,7 +1,6 @@
 (page "index.html"
       (:require [tailrecursion.hoplon.storage-atom :refer [local-storage]]
                 [datascript :as d]
-                [cast.rpc :as rpc]
                 [cljs.core.match])
       (:require-macros [cljs.core.match.macros :refer [match]]))
 
@@ -168,12 +167,15 @@
                       :feature/title title
                       :feature/description description}])
 
-         [:login :local ([db username] :seq)]
+         [:login :local ([db username password] :seq)]
          (when-let [u (ffirst (d/q '[:find ?u
                                      :in $ ?n
                                      :where [?u :user/name ?n]] db username))]
            (reset! current-page (ffirst @pages))
            (reset! current-user-id u))
+
+         [:login :remote ([db username password] :seq)]
+         (rpc/login! username password)
 
          [:logout _ ([db] :seq)]
          (do (reset! current-page nil)
@@ -209,6 +211,7 @@
                  (text "~{current-user-name}")
                  (div :class "menu"
                       (div :class "item" :on-click #(do-cmd! :logout @db) "Log out")))))
+
   (div :class "container"
        (div :class "ui form segment"
             :do-toggle (cell= (not logged-in?))
@@ -222,13 +225,14 @@
             (div :class "field"
                  (label "Password")
                  (div :class "ui left labeled icon input"
-                      (input :type "password")
+                      (input :type "password" :id "password")
                       (i :class "lock icon")
                       (div :class"ui corner label"
                            (i :class "icon asterisk"))))
             (div :class "ui blue submit button"
-                 :on-click #(do-cmd! :login @db (val-id "username"))
+                 :on-click #(do-cmd! :login @db (val-id "username") (val-id "password"))
                  "Login"))
+
        (div :do-toggle logged-in?
             (loop-tpl :bindings [[id title description votes my-votes] sorted-features]
                       (let [votes-available (cell= (> votes-remaining 0))
