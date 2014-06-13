@@ -13,7 +13,9 @@
    [org.httpkit.server :as httpkit]
    [compojure.core :refer [GET POST defroutes]]
    [tailrecursion.boot.core :as boot :refer [deftask get-env set-env!]]
-   [tailrecursion.boot.task.ring :as r]))
+   [tailrecursion.boot.task.ring :as r]
+   [clojure.core.async :as async :refer [<! >! go go-loop put!]]
+   [clojure.core.match :refer [match]]))
 
 ; ----------------------
 ; Websocket setup
@@ -32,16 +34,26 @@
   (GET  "/chsk" req (ring-ajax-get-or-ws-handshake req))
   (POST "/chsk" req (ring-ajax-post                req)))
 
+; -----------------------
+; Commands
+; -----------------------
+
+(defn process-events
+  [ch]
+  (go-loop []
+           (when-let [{[ev-id ?ev-data] :event ?reply-fn :?reply-fn} (<! ch)]
+             (match [ev-id ?ev-data]
+                    [:cast/login ([username password] :seq)] (do (println username password) (?reply-fn 1))
+
+                    :else
+                    (println "Command not found for " ev-id ?ev-data))
+             (recur))))
+
+
 ; ----------------------
 ; Custom boot tasks
 ; ----------------------
 
-(deftask http-kit
-  "Task to start an http-kit server (replacement for the built in ring jetty adapter)"
-  [handler {:keys [port join?] :or {port 8000 join? false}}]
-  (println "HTTPKit server stored in atom here: #'tailrecursion.boot.task.ring/server...")
-  (boot/with-pre-wrap
-    (swap! r/server #(or % (-> (@r/middleware (comp handler r/handle-404)) (httpkit/run-server {:port port :join? join?}))))))
 
 (deftask start-server
   "Starts the app"
@@ -52,7 +64,10 @@
            docroot (get-env :out-path)}}]
   (comp (r/head) (r/dev-mode) (r/cors #".*localhost.*")
         (r/session-cookie key) (r/files docroot) (r/reload)
-        (http-kit websocket-routes {:port port :join join?})))
+        (boot/with-pre-wrap
+          (swap! r/server #(or % (-> (@r/middleware websocket-routes)
+                                     (httpkit/run-server {:port port :join? join?}))))
+          (process-events ch-chsk))))
 
 (def nrepl-server (atom nil))
 

@@ -86,7 +86,25 @@
   If each entity is a vector (as returned from datomic,
   then assume the first element is the entity id."
   [db entity-ids]
-  (map (comp (partial fmap #(if (instance? datomic.query.EntityMap %) (:db/id %) %)) #(into {:db/id (:db/id %)} %) d/touch (partial d/entity db) #(if (vector? %) (first %) %)) entity-ids))
+  (map (comp (partial fmap #(if (instance? datomic.query.EntityMap %) (:db/id %) %))
+             #(into {:db/id (:db/id %)} %)
+             d/touch
+             (partial d/entity db)
+             #(if (vector? %) (first %) %)) entity-ids))
+
+(defn get-entities []
+  (let [db (d/db conn)
+        attributes [:feature/title :user/name :vote/user :page/name]]
+    (mapcat #(load-entities db (all-with-attribute db %)) attributes)))
+
+(defn resolve-ids [tx-data]
+  (clojure.walk/postwalk (fn [e] (if (and (number? e) (neg? e))
+                                   (d/tempid :db.part/user e)
+                                   e)) tx-data))
+(defn transact [tx-data]
+  (let [processed-tx-data (resolve-ids tx-data)]
+    (d/transact conn processed-tx-data)))
+
 
 ; -------------------------------
 ; Queries
