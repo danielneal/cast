@@ -45,18 +45,23 @@
   [ch]
   (go-loop []
            (when-let [{[ev-id ?ev-data] :event ?reply-fn :?reply-fn} (<! ch)]
-             (match [ev-id ?ev-data]
-                    [:cast/login ([username password] :seq)]
-                    (let [db (d/db cdb/conn)
-                          u (cdb/user-with-name db username)
-                          e (cdb/all-visible-entities db u)]
-                      (println u)
-                      (println e)
-                      (?reply-fn {:user-id u
-                                  :entities e}))
+             (let [db (d/db cdb/conn)]
+               (match [ev-id ?ev-data]
 
-                    :else
-                    (println "Command not found for " ev-id ?ev-data))
+                      [:authentication/login ([username password] :seq)]
+                      (let [u (cdb/user-with-name db username)
+                            e (cdb/all-visible-entities db u)]
+                        (?reply-fn {:user-id u
+                                    :entities e}))
+
+                      [:vote/up ([feature user] :seq)]
+                      (cdb/up-vote db feature user)
+
+                      [:vote/down ([feature user] :seq)]
+                      (cdb/down-vote db feature user)
+
+                      :else
+                      (println "Command not found for " ev-id ?ev-data)))
              (recur))))
 
 

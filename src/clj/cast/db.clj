@@ -66,6 +66,29 @@
     :db/cardinality :db.cardinality/one
     :db.install/_attribute :db.part/db}])
 
+(def seed-data [{:db/id (d/tempid :db.part/user -1)
+                 :page/name "Ida"}
+                {:db/id  (d/tempid :db.part/user -2)
+                 :page/name "SugarCRM"}
+                {:db/id  (d/tempid :db.part/user -3)
+                 :feature/title "Ida feature 1"
+                 :feature/description "A descriptions"
+                 :feature/page (d/tempid :db.part/user -1)}
+                {:db/id  (d/tempid :db.part/user -4)
+                 :feature/title "SugarCRm feature 2 "
+                 :feature/description "Another description"
+                 :feature/page  (d/tempid :db.part/user -2)}
+                {:db/id  (d/tempid :db.part/user -5)
+                 :feature/title "Ida feature2 "
+                 :feature/description "Another description"
+                 :feature/page  (d/tempid :db.part/user -1)}
+                {:db/id (d/tempid :db.part/user -6)
+                 :user/name "Daniel"
+                 :user/max-votes 10}
+                {:db/id (d/tempid :db.part/user -7)
+                 :user/name "Bob"
+                 :user/max-votes 10}])
+
 (def uri "datomic:mem://cast")
 
 (defn init! []
@@ -73,6 +96,7 @@
   (d/create-database uri)
   (let [conn (d/connect uri)]
     (d/transact conn schema)
+    (d/transact conn seed-data)
     conn))
 
 (def conn (init!))
@@ -91,45 +115,6 @@
               (into {:db/id (:db/id e)} e)
               (fmap (fn [v] (if (instance? datomic.query.EntityMap v) (:db/id v) v)) e))
        entity-ids))
-
-(defn resolve-ids [tx-data]
-  (clojure.walk/postwalk
-   (fn [e] (if (and (number? e) (neg? e))
-             (d/tempid :db.part/user e)
-             e)) tx-data))
-
-(defn transact [tx-data]
-  (let [processed-tx-data (resolve-ids tx-data)]
-    (d/transact conn processed-tx-data)))
-
-; -------------------------------
-; Seed data
-; -------------------------------
-
-(d/transact conn
-            (resolve-ids [{:db/id -1
-                          :page/name "Ida"}
-                         {:db/id -2
-                          :page/name "SugarCRM"}
-                         {:db/id -3
-                          :feature/title "Ida feature 1"
-                          :feature/description "A descriptions"
-                          :feature/page -1}
-                         {:db/id -4
-                          :feature/title "SugarCRm feature 2 "
-                          :feature/description "Another description"
-                          :feature/page -2}
-                         {:db/id -5
-                          :feature/title "Ida feature2 "
-                          :feature/description "Another description"
-                          :feature/page -1}
-                         {:db/id -6
-                          :user/name "Daniel"
-                          :user/max-votes 10}
-                         {:db/id -7
-                          :user/name "Bob"
-                          :user/max-votes 10}]))
-
 
 ; -------------------------------
 ; Queries
@@ -166,6 +151,7 @@
          :in $ ?u
          :where [?u :user/name _]] db user-id))
 
+
 (defn user-with-name
   "Return the user with the given name"
   [db user-name]
@@ -178,3 +164,27 @@
        (mapcat #(% db user-id))
        (map first)
        (load-entities db)))
+
+
+; -------------------------------
+; Commands
+; -------------------------------
+
+(defn up-vote [db feature user]
+  (d/transact conn [{:db/id (d/tempid :db.part/user)
+                     :vote/feature feature
+                     :vote/user user}]))
+
+(defn down-vote [db feature user]
+  (when-let [e (ffirst (d/q '[:find ?e
+                              :in $ ?feature ?user
+                              :where
+                              [?e :vote/feature ?feature]
+                              [?e :vote/user ?user]] db feature user))]
+    (d/transact conn [[:db.fn/retractEntity e]])))
+
+(defn add-feature [db title description]
+  (d/transact conn [{:db/id (d/tempid :db.part/user)
+                     :feature/title title
+                     :feature/description description}]))
+
