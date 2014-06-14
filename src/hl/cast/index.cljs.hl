@@ -30,6 +30,20 @@
     (d/listen! conn #(reset! db @conn))
     (defn transact! [tx-data] (d/transact! conn tx-data))))
 
+(go-loop []
+         (when-let [[ev-id ev-data] (<! ch-chsk)]
+           (match [ev-id ev-data]
+
+                  [:chsk/state {:first-open? true}]
+                  (println "Connection established")
+
+                  [:chsk/recv ([:db/updates stmts] :seq)]
+                  (transact! (into [] stmts))
+
+                  :else
+                  (println "Received " ev-id ev-data))
+           (recur)))
+
 ; --------------------------
 ; Input Cells
 ; --------------------------
@@ -121,7 +135,7 @@
 (defn do-cmd! [cmd & args]
   (match [cmd args]
 
-         [:page/set ([db id] :seq)]
+         [:page/set ([id] :seq)]
          (reset! current-page id)
 
          [:authentication/login ([username password] :seq)]

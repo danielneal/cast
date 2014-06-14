@@ -1,6 +1,7 @@
 (ns cast.db
   (:require [datomic.api :as d]
-            [clojure.algo.generic.functor :refer [fmap]]))
+            [clojure.algo.generic.functor :refer [fmap]]
+            [clojure.core.async :as async :refer [>! <! <!! >!! go-loop]]))
 
 ; -------------------------------
 ;  Database Setup
@@ -97,9 +98,16 @@
   (let [conn (d/connect uri)]
     (d/transact conn schema)
     (d/transact conn seed-data)
-    conn))
+    (let [q (d/tx-report-queue conn)
+          ch (async/chan)]
+      (async/thread
+       (while true
+         (>!! ch (.take q))))
+      [conn ch])))
 
-(def conn (init!))
+(let [[cn ch] (init!)]
+  (def conn cn)
+  (def report-m (async/mult ch)))
 
 ; -------------------------------
 ; Helpers
@@ -115,6 +123,47 @@
               (into {:db/id (:db/id e)} e)
               (fmap (fn [v] (if (instance? datomic.query.EntityMap v) (:db/id v) v)) e))
        entity-ids))
+
+(defn ref? [db attr]
+  (ffirst (d/q '[:find ?a
+                 :in $ ?a
+                 :where [?a :db/valueType :db.type/ref]] db attr)))
+
+; -------------------------------
+; Transaction Reports
+; -------------------------------
+
+(defn updates []
+  (let [ch (async/chan)
+        report-ch (async/chan)]
+    (async/tap report-m report-ch)
+    (go-loop []
+             (when-let [x (<! report-ch)]
+               (let [tx-data (:tx-data x)
+                     db (:db-after x)
+
+                     [additions retractions]
+                     (map #(d/q '[:find ?e ?aname ?v
+                                  :in $ $tx ?added
+                                  :where
+                                  [$tx ?e ?a ?v ?tx ?added]
+                                  [$ ?a :db/ident ?aname]] db tx-data %) [true false])
+
+                     addition-statements
+                     (for [[e a v] additions :when (not (= a :db/txInstant))]
+                       [:db/add e a v])
+
+                     retraction-statements
+                     (for [[e a v] retractions]
+                       [:db/retract e a v])
+
+                     statements (concat addition-statements retraction-statements)]
+
+                 (println statements)
+                 (>! ch statements)
+                 (recur))))
+    ch))
+
 
 ; -------------------------------
 ; Queries

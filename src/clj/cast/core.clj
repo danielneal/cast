@@ -50,7 +50,14 @@
 
                       [:authentication/login ([username password] :seq)]
                       (let [u (cdb/user-with-name db username)
-                            e (cdb/all-visible-entities db u)]
+                            e (cdb/all-visible-entities db u)
+                            ch (cdb/updates)]
+
+                        (go-loop []
+                                 (when-let [stmts (<! ch)]
+                                   (chsk-send! nil [:db/updates stmts])
+                                   (recur)))
+
                         (?reply-fn {:user-id u
                                     :entities e}))
 
@@ -63,7 +70,6 @@
                       :else
                       (println "Command not found for " ev-id ?ev-data)))
              (recur))))
-
 
 ; ----------------------
 ; Custom boot tasks
