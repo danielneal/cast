@@ -15,7 +15,10 @@
    [tailrecursion.boot.core :as boot :refer [deftask get-env set-env!]]
    [tailrecursion.boot.task.ring :as r]
    [clojure.core.async :as async :refer [<! >! go go-loop put!]]
-   [clojure.core.match :refer [match]]))
+   [clojure.core.match :refer [match]]
+   [datomic.api :as d]
+   [cast.db :as cdb]
+   [cast.authenticate :as authenticate]))
 
 ; ----------------------
 ; Websocket setup
@@ -43,7 +46,14 @@
   (go-loop []
            (when-let [{[ev-id ?ev-data] :event ?reply-fn :?reply-fn} (<! ch)]
              (match [ev-id ?ev-data]
-                    [:cast/login ([username password] :seq)] (do (println username password) (?reply-fn 1))
+                    [:cast/login ([username password] :seq)]
+                    (let [db (d/db cdb/conn)
+                          u (cdb/user-with-name db username)
+                          e (cdb/all-visible-entities db u)]
+                      (println u)
+                      (println e)
+                      (?reply-fn {:user-id u
+                                  :entities e}))
 
                     :else
                     (println "Command not found for " ev-id ?ev-data))

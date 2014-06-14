@@ -33,38 +33,9 @@
                 :feature/page {:db/valueType :db.type/ref}}]
       (let [conn (d/create-conn schema)]
         (d/listen! conn #(reset! db @conn))
-        {:transact (if (= mode :local)
-                     (fn [tx-data] (d/transact! conn tx-data))
-                     (fn [tx-data] (chsk-send! [:cast/transact! tx-data])))})))
+        (fn [tx-data] (d/transact! conn tx-data)))))
 
 (def transact! (init! *mode*))
-
-; --------------------------
-; Seed data
-; --------------------------
-
-(transact! [{:db/id -1
-             :page/name "Ida"}
-             {:db/id -2
-             :page/name "SugarCRM"}
-             {:db/id -3
-             :feature/title "Ida feature 1"
-             :feature/description "A descriptions"
-              :feature/page -1}
-            {:db/id -4
-             :feature/title "SugarCRm feature 2 "
-             :feature/description "Another description"
-             :feature/page -2}
-             {:db/id -5
-             :feature/title "Ida feature2 "
-             :feature/description "Another description"
-              :feature/page -1}
-             {:db/id -6
-             :user/name "Daniel"
-             :user/max-votes 10}
-             {:db/id -7
-             :user/name "Bob"
-             :user/max-votes 10}])
 
 ; --------------------------
 ; Input Cells
@@ -185,7 +156,13 @@
            (reset! current-user-id u))
 
          [:login :remote ([db username password] :seq)]
-         (chsk-send! [:cast/login [username password]] 8000 #(reset! current-user-id %))
+         (chsk-send! [:cast/login [username password]] 8000
+                     #(let [{u :user-id e :entities} %]
+                        (println u)
+                        (println e)
+                        (transact! e)
+                        (reset! current-user-id u)
+                        (reset! current-page (ffirst @pages))))
 
          [:logout _ ([db] :seq)]
          (do
