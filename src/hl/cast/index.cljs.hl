@@ -8,16 +8,6 @@
                        [cljs.core.async.macros :as asyncm :refer (go go-loop)]))
 
 ; --------------------------
-; Websocket set up
-; --------------------------
-
-(let [{:keys [chsk ch-recv send-fn state]} (sente/make-channel-socket! "/chsk"  {:type :auto})]
-  (def chsk       chsk)
-  (def ch-chsk    ch-recv) ; ChannelSocket's receive channel
-  (def chsk-send! send-fn) ; ChannelSocket's send API fn
-  (def chsk-state state))  ; Watchable, read-only atom
-
-; --------------------------
 ; Initialize a database
 ; --------------------------
 
@@ -43,6 +33,16 @@
                   :else
                   (println "Received " ev-id ev-data))
            (recur)))
+
+; --------------------------
+; Websocket set up
+; --------------------------
+
+(let [{:keys [chsk ch-recv send-fn state]} (sente/make-channel-socket! "/chsk"  {:type :auto})]
+  (def chsk       chsk)
+  (def ch-chsk    ch-recv) ; ChannelSocket's receive channel
+  (def chsk-send! send-fn) ; ChannelSocket's send API fn
+  (def chsk-state state))  ; Watchable, read-only atom
 
 ; --------------------------
 ; Input Cells
