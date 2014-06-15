@@ -159,7 +159,6 @@
 
                      statements (concat addition-statements retraction-statements)]
 
-                 (println statements)
                  (>! ch statements)
                  (recur))))
     ch))
