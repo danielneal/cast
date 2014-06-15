@@ -24,3 +24,7 @@ h1,h2,h3,h4,h5,p {
 .ui.segment {
   margin:2em;
 }
+
+.ui.button.monochrome {
+  background-color:#BBBBCC;
+}

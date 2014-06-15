@@ -208,10 +208,18 @@
                              (h4 :class "ui left floated header" (text "~{title}"))
                              (div :class "ui mini buttons"
                                   :do-toggle logged-in?
-                                  (div :class "ui green icon button"
+                                  (div :class  (cell= {:ui true
+                                                       :green true
+                                                       :icon true
+                                                       :button true
+                                                       :monochrome (not voted-for-this)})
                                        (i :class "icon plus"
                                           :on-click #(when @votes-available (do-cmd! :vote/up @id @current-user-id))))
-                                  (div :class "ui red icon button"
+                                  (div :class (cell= {:ui true
+                                                      :red true
+                                                      :icon true
+                                                      :button true
+                                                      :monochrome (not voted-for-this)})
                                        (i :class "icon minus"
                                           :on-click #(do-cmd! :vote/down @id @current-user-id))))
                              (div :class "ui top right attached label" (text "~{votes}"))
