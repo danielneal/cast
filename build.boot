@@ -10,6 +10,8 @@
                   [org.clojure/clojurescript "0.0-2227"]
                   [tailrecursion/boot.ring   "0.2.1"]
 
+                  [lein-light-nrepl "0.0.13"]
+                  [org.clojure/tools.nrepl "0.2.3"]
                   [com.datomic/datomic-free "0.9.4766"]
                   [datascript "0.1.5"]
                   [org.clojure/algo.generic "0.1.0"]
@@ -27,17 +29,17 @@
 ;; Static resources (css, images, etc.):
 (add-sync! (get-env :out-path) #{"assets"})
 
-(require '[tailrecursion.hoplon.boot :refer :all])
+(require '[tailrecursion.hoplon.boot :refer [watch hoplon]])
 (require '[cast.core :as core])
 
 (deftask development
   "Build cast for development."
   []
-  (comp (watch) (hoplon {:prerender false :source-map true}) (core/repl-light) (core/start-server)))
+  (comp (watch) (core/repl-light) (core/start-server {:dev? true}) (hoplon {:prerender false :pretty-print true :source-map true})))
 
 (deftask production
   "Build cast for production."
   []
-  (hoplon {:optimizations :advanced}))
+  (comp (core/start-server {:dev? false}) (hoplon {:optimizations :advanced})))
 
 
