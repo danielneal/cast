@@ -19,6 +19,10 @@
    [datomic.api :as d]
    [cast.db :as cdb]
    [cast.authenticate :as authenticate]))
+   [cast.authenticate :as authenticate]
+   [clojure.tools.nrepl.server :as nrepl]
+   [lighttable.nrepl.handler :as light]))
+
 
 ; ----------------------
 ; Websocket setup
@@ -95,17 +99,8 @@
 (deftask repl-light
   "Launch a lighttable nrepl in the project."
   []
-  (set-env! :dependencies
-            '[[lein-light-nrepl "0.0.13"]
-              [org.clojure/tools.nrepl "0.2.3"]])
   (boot/with-pre-wrap
-    (require 'clojure.tools.nrepl.server)
-    (require 'lighttable.nrepl.handler)
-    (let [start-server (resolve 'clojure.tools.nrepl.server/start-server)
-          default-handler (resolve 'clojure.tools.nrepl.server/default-handler)
-          lighttable-ops (resolve 'lighttable.nrepl.handler/lighttable-ops)]
-      (swap! nrepl-server #(or % (start-server
-                                  :port 0
-                                  :handler (default-handler lighttable-ops))))
-      (println "nrepl server running on " (:port @nrepl-server)))))
-
+    (swap! nrepl-server #(or % (nrepl/start-server
+                                :port 0
+                                :handler (nrepl/default-handler light/lighttable-ops))))
+    (println "nrepl server running on " (:port @nrepl-server))))
