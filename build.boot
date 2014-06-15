@@ -40,4 +40,4 @@
 (deftask production
   "Build cast for production."
   [port]
-  (comp (with-pre-wrap @(promise)) (core/start-server {:dev? false :port port}) (hoplon {:optimizations :simple})))
+  (comp (core/start-server {:dev? false :port port}) (hoplon {:optimizations :simple}) (with-pre-wrap @(promise))))
