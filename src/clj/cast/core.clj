@@ -79,16 +79,16 @@
 ; Custom boot tasks
 ; ----------------------
 
-
 (deftask start-server
   "Starts the app"
-  [& {:keys [port join? key docroot]
+  [{:keys [port join? key docroot dev?]
       :or {port    8000
            join?   false
+           dev? true
            key     "a 16-byte secret"
            docroot (get-env :out-path)}}]
-  (comp (r/head) (r/dev-mode) (r/cors #".*localhost.*")
-        (r/session-cookie key) (r/files docroot) (r/reload)
+  (comp (r/head) (if dev? (r/dev-mode) identity) (if dev? (r/cors #".*localhost.*") (r/cors #".*danielneal.*"))
+        (r/session-cookie key) (r/files docroot) (if dev? (r/reload) identity)
         (boot/with-pre-wrap
           (swap! r/server #(or % (-> (@r/middleware websocket-routes)
                                      (httpkit/run-server {:port port :join? join?}))))
