@@ -1,3 +1,4 @@
 /.boot/
 /resources/public/
 /src/clj/cast/config.edn
+/target/
