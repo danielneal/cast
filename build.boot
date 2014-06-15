@@ -29,7 +29,7 @@
 ;; Static resources (css, images, etc.):
 (add-sync! (get-env :out-path) #{"assets"})
 
-(require '[tailrecursion.hoplon.boot :refer [watch hoplon]])
+(require '[tailrecursion.hoplon.boot :refer :all])
 (require '[cast.core :as core])
 
 (deftask development
@@ -39,7 +39,7 @@
 
 (deftask production
   "Build cast for production."
-  []
-  (comp (core/start-server {:dev? false}) (hoplon {:optimizations :advanced})))
+  [port]
+  (comp (hoplon {:optimizations :advanced}) (core/start-server {:dev? false :port port})))
 
 
