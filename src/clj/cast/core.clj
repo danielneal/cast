@@ -18,7 +18,6 @@
    [clojure.core.match :refer [match]]
    [datomic.api :as d]
    [cast.db :as cdb]
-   [cast.authenticate :as authenticate]))
    [cast.authenticate :as authenticate]
    [clojure.tools.nrepl.server :as nrepl]
    [lighttable.nrepl.handler :as light]))
