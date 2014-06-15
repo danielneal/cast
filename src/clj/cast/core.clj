@@ -22,7 +22,6 @@
    [clojure.tools.nrepl.server :as nrepl]
    [lighttable.nrepl.handler :as light]))
 
-
 ; ----------------------
 ; Websocket setup
 ; ----------------------
