@@ -8,15 +8,20 @@
   :dependencies '[[tailrecursion/boot.task   "2.1.3"]
                   [tailrecursion/hoplon      "5.10.6"]
                   [org.clojure/clojurescript "0.0-2227"]
-                  [tailrecursion/boot.ring   "0.1.0"]
-                  [tailrecursion/castra "1.2.0"]
+                  [tailrecursion/boot.ring   "0.2.1"]
 
+                  [lein-light-nrepl "0.0.13"]
+                  [org.clojure/tools.nrepl "0.2.3"]
                   [com.datomic/datomic-free "0.9.4766"]
                   [datascript "0.1.5"]
                   [org.clojure/algo.generic "0.1.0"]
                   [clj-http "0.9.2"]
                   [org.clojure/core.match "0.2.1"]
-                  [digest "1.4.4"]]
+                  [digest "1.4.4"]
+                  [com.taoensso/sente "0.14.1"]
+                  [compojure "1.1.8"]
+                  [http-kit "2.1.16"]
+                  [org.clojure/core.async "0.1.303.0-886421-alpha"]]
 
   :out-path     "resources/public"
   :src-paths    #{"src/hl" "src/cljs" "src/clj" "src/semantic"})
@@ -24,36 +29,17 @@
 ;; Static resources (css, images, etc.):
 (add-sync! (get-env :out-path) #{"assets"})
 
-(require '[tailrecursion.hoplon.boot :refer :all]
-         '[tailrecursion.castra.task :as c])
+(require '[tailrecursion.hoplon.boot :refer :all])
+(require '[cast.core :as core])
 
 (deftask development
   "Build cast for development."
   []
-  (comp (watch) (hoplon {:prerender false}) (c/castra-dev-server 'cast.api)))
+  (comp (watch) (core/repl-light) (core/start-server {:dev? true}) (hoplon {:prerender false :pretty-print true :source-map true})))
 
 (deftask production
   "Build cast for production."
-  []
-  (hoplon {:optimizations :advanced}))
+  [port]
+  (comp (hoplon {:optimizations :advanced}) (core/start-server {:dev? false :port port})))
 
-(deftask repl-light
-  "Launch nrepl in the project."
-  []
-  (set-env! :dependencies
-  '[[lein-light-nrepl "0.0.13"]
-    [org.clojure/tools.nrepl "0.2.3"]
-    [org.clojure/clojure "1.5.1"]])
-  (fn [continue]
-    (fn [event]
-      (require 'clojure.tools.nrepl.server)
-      (require 'lighttable.nrepl.handler)
-      (let [start-server (resolve 'clojure.tools.nrepl.server/start-server)
-            default-handler (resolve 'clojure.tools.nrepl.server/default-handler)
-            lighttable-ops (resolve 'lighttable.nrepl.handler/lighttable-ops)]
-        (let [server (start-server
-                         :port 0
-                         :handler (default-handler lighttable-ops))]
-         (println "started server on " (:port server))
-        (continue event)
-        @(promise))))))
+

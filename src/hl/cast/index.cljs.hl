@@ -1,63 +1,48 @@
 (page "index.html"
       (:require [tailrecursion.hoplon.storage-atom :refer [local-storage]]
                 [datascript :as d]
-                [cast.rpc :as rpc]
-                [cljs.core.match])
-      (:require-macros [cljs.core.match.macros :refer [match]]))
+                [cljs.core.match]
+                [cljs.core.async :as async :refer [<! >! put! chan]]
+                [taoensso.sente :as sente :refer [cb-success?]])
+      (:require-macros [cljs.core.match.macros :refer [match]]
+                       [cljs.core.async.macros :as asyncm :refer (go go-loop)]))
 
 ; --------------------------
-; Initialization
+; Initialize a database
 ; --------------------------
 
-(def ^:dynamic *mode* :local)
+(def db (cell nil))
 
-(defn init! [mode]
-  (let [schema {:vote/user {:db/valueType :db.type/ref}
-                :vote/feature {:db/valueType :db.type/ref}
-                :feature/page {:db/valueType :db.type/ref}}]
-    (if (= mode :local)
-      (let [conn (d/create-conn schema)
-            db (cell nil)]
-        (d/listen! conn #(reset! db @conn))
-        {:transact! (fn [tx-data]  (d/transact! conn tx-data))
-         :db db})
-
-      (let [db (cell= (d/with (d/empty-db schema) rpc/entities))]
-        (rpc/get-entities)
-        (js/setInterval rpc/get-entities 5000)
-        {:transact! (fn [tx-data] (rpc/transact! tx-data))
-         :db db }))))
-
-(let [{t :transact! d :db}  (init! *mode*)]
-  (def transact! t)
-  (def db d))
+(let [schema {:vote/user {:db/valueType :db.type/ref}
+              :vote/feature {:db/valueType :db.type/ref}
+              :feature/page {:db/valueType :db.type/ref}}]
+  (let [conn (d/create-conn schema)]
+    (d/listen! conn #(reset! db @conn))
+    (defn transact! [tx-data] (d/transact! conn tx-data))))
 
 ; --------------------------
-; Seed data
+; Websocket set up
 ; --------------------------
 
-(transact! [{:db/id -1
-             :page/name "Ida"}
-             {:db/id -2
-             :page/name "SugarCRM"}
-             {:db/id -3
-             :feature/title "Ida feature 1"
-             :feature/description "A descriptions"
-              :feature/page -1}
-            {:db/id -4
-             :feature/title "SugarCRm feature 2 "
-             :feature/description "Another description"
-             :feature/page -2}
-             {:db/id -5
-             :feature/title "Ida feature2 "
-             :feature/description "Another description"
-              :feature/page -1}
-             {:db/id -6
-             :user/name "Daniel"
-             :user/max-votes 10}
-             {:db/id -7
-             :user/name "Bob"
-             :user/max-votes 10}])
+(let [{:keys [chsk ch-recv send-fn state]} (sente/make-channel-socket! "/chsk"  {:type :auto})]
+  (def chsk       chsk)
+  (def ch-chsk    ch-recv) ; ChannelSocket's receive channel
+  (def chsk-send! send-fn) ; ChannelSocket's send API fn
+  (def chsk-state state))  ; Watchable, read-only atom
+
+(go-loop []
+         (when-let [[ev-id ev-data] (<! ch-chsk)]
+           (match [ev-id ev-data]
+
+                  [:chsk/state {:first-open? true}]
+                  (println "Connection established")
+
+                  [:chsk/recv ([:db/updates stmts] :seq)]
+                  (transact! (into [] stmts))
+
+                  :else
+                  (println "Received " ev-id ev-data))
+           (recur)))
 
 ; --------------------------
 ; Input Cells
@@ -148,41 +133,24 @@
 ; --------------------------
 
 (defn do-cmd! [cmd & args]
-  (match [cmd *mode* args]
+  (match [cmd args]
 
-         [:up-vote _ ([db feature user] :seq)]
-         (transact! [{:db/id -1
-                      :vote/feature feature
-                      :vote/user user}])
-
-         [:down-vote _ ([db feature user] :seq)]
-         (when-let [[e] (first (d/q '[:find ?e
-                                      :in $ ?feature ?user
-                                      :where
-                                      [?e :vote/feature ?feature]
-                                      [?e :vote/user ?user]] db feature user))]
-           (transact! [[:db.fn/retractEntity e]]))
-
-         [:add-feature _ ([db title description] :seq)]
-         (transact! [{:db/id -1
-                      :feature/title title
-                      :feature/description description}])
-
-         [:login :local ([db username] :seq)]
-         (when-let [u (ffirst (d/q '[:find ?u
-                                     :in $ ?n
-                                     :where [?u :user/name ?n]] db username))]
-           (reset! current-page (ffirst @pages))
-           (reset! current-user-id u))
-
-         [:logout _ ([db] :seq)]
-         (do (reset! current-page nil)
-           (reset! current-user-id nil))
-
-         [:set-page _ ([db id] :seq)]
+         [:page/set ([id] :seq)]
          (reset! current-page id)
 
-         :else (println "Command not recognised: " cmd *mode* args)))
+         [:authentication/login ([username password] :seq)]
+         (chsk-send! [:authentication/login [username password]] 8000
+                     #(let [{u :user-id e :entities} %]
+                        (transact! e)
+                        (reset! current-user-id u)
+                        (reset! current-page (ffirst @pages))))
+
+         [:authentication/logout _]
+         (do
+           (reset! current-user-id nil)
+           (reset! current-page nil))
+
+         :else (chsk-send! [cmd args])))
 
 
 ; --------------------------
@@ -200,7 +168,8 @@
                  (loop-tpl :bindings [[id page-name] pages]
                            :reverse true
                            (div :class "item"
-                                :on-click #(do-cmd! :set-page @db @id) page-name))))
+                                :on-click #(do-cmd! :page/set @id) page-name))))
+
        (div :class "right menu"
             :do-toggle logged-in?
             (div :class "item"
@@ -208,7 +177,8 @@
             (div :class "ui simple dropdown item"
                  (text "~{current-user-name}")
                  (div :class "menu"
-                      (div :class "item" :on-click #(do-cmd! :logout @db) "Log out")))))
+                      (div :class "item" :on-click #(do-cmd! :authentication/logout) "Log out")))))
+
   (div :class "container"
        (div :class "ui form segment"
             :do-toggle (cell= (not logged-in?))
@@ -222,13 +192,14 @@
             (div :class "field"
                  (label "Password")
                  (div :class "ui left labeled icon input"
-                      (input :type "password")
+                      (input :type "password" :id "password")
                       (i :class "lock icon")
                       (div :class"ui corner label"
                            (i :class "icon asterisk"))))
             (div :class "ui blue submit button"
-                 :on-click #(do-cmd! :login @db (val-id "username"))
+                 :on-click #(do-cmd! :authentication/login (val-id "username") (val-id "password"))
                  "Login"))
+
        (div :do-toggle logged-in?
             (loop-tpl :bindings [[id title description votes my-votes] sorted-features]
                       (let [votes-available (cell= (> votes-remaining 0))
@@ -237,12 +208,20 @@
                              (h4 :class "ui left floated header" (text "~{title}"))
                              (div :class "ui mini buttons"
                                   :do-toggle logged-in?
-                                  (div :class "ui green icon button"
+                                  (div :class  (cell= {:ui true
+                                                       :green true
+                                                       :icon true
+                                                       :button true
+                                                       :monochrome (not voted-for-this)})
                                        (i :class "icon plus"
-                                          :on-click #(when @votes-available (do-cmd! :up-vote @db @id @current-user-id))))
-                                  (div :class "ui red icon button"
+                                          :on-click #(when @votes-available (do-cmd! :vote/up @id @current-user-id))))
+                                  (div :class (cell= {:ui true
+                                                      :red true
+                                                      :icon true
+                                                      :button true
+                                                      :monochrome (not voted-for-this)})
                                        (i :class "icon minus"
-                                          :on-click #(do-cmd! :down-vote @db @id @current-user-id))))
+                                          :on-click #(do-cmd! :vote/down @id @current-user-id))))
                              (div :class "ui top right attached label" (text "~{votes}"))
                              (div :class "ui clearing divider")
                              (p (text "~{description}")))))))))
