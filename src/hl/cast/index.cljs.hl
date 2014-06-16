@@ -132,11 +132,44 @@
 ; Commands
 ; --------------------------
 
+(defn optimistic-transact!
+  "Returns a function to do a transaction, which (when donea) a function to undo the transaction. "
+  [transact! transaction]
+  (fn []
+    (let [tempids (:tempids (transact! transaction))
+          opposite (mapv (fn [[cmd e a v]]
+                           (match [cmd e]
+                                  [:db/add (e :guard #(neg? %))] [:db/retract (tempids e) a v]
+
+                                  [:db/add e] [:db/retract e a v]
+
+                                  [:db/retract e] [:db/add e a v]))
+                         transaction)]
+      (println transaction)
+      (println opposite)
+      (fn [] (transact! opposite)))))
+
 (defn do-cmd! [cmd & args]
   (match [cmd args]
 
          [:page/set ([id] :seq)]
          (reset! current-page id)
+
+         [:vote/up ([feature user] :seq)]
+         (let [t (optimistic-transact! transact! [[:db/add -1 :vote/feature feature]
+                                                  [:db/add -1 :vote/user user]])
+               u (t)]
+           (go (<! (async/timeout 1000))
+               (u)))
+
+         [:vote/down ([feature user] :seq)]
+         (let [x (ffirst (d/q '[:find ?v :in $ ?f ?u :where [?v :vote/feature ?f] [?v :vote/user ?u]] @db feature user))
+               t (optimistic-transact! transact! [[:db/retract x :vote/feature feature]
+                                                  [:db/retract x :vote/user user]])
+               u (t)]
+           (go (<! (async/timeout 1000))
+               (u)))
+
 
          [:authentication/login ([username password] :seq)]
          (chsk-send! [:authentication/login [username password]] 8000
