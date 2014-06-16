@@ -90,6 +90,7 @@
         (boot/with-pre-wrap
           (swap! r/server #(or % (-> (@r/middleware websocket-routes)
                                      (httpkit/run-server {:port port :join? join?}))))
+          (println "HTTPKit server running on " port)
           (process-events ch-chsk))))
 
 (def nrepl-server (atom nil))
