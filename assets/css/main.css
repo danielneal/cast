@@ -22,9 +22,26 @@ h1,h2,h3,h4,h5,p {
 }
 
 .ui.segment {
-  margin:2em;
+  margin:rem;
 }
 
-.ui.button.monochrome {
-  background-color:#BBBBCC;
+
+.votes span {
+  display:block;
+  font-size:3rem;
+  font-weight:bold;
+  text-align:center;
+}
+
+.votes {
+  width:75px;
+  min-width:75px;
+}
+
+.ui.mini.buttons .button {
+  width:35px;
+}
+
+.ui.mini.buttons span {
+  margin-left:0.2rem;
 }

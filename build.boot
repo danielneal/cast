@@ -38,6 +38,6 @@
   (comp (watch) (core/repl-light) (core/start-server {:dev? true}) (hoplon {:prerender false :pretty-print true :source-map true})))
 
 (deftask production
-  "Build cast for production. Name is ignored but allows us to find the process more easily."
-  [name port]
-  (comp  (core/start-server {:dev? false :port port}) (hoplon {:prerender false}) (with-pre-wrap (sync!) @(promise))))
+  "Build cast for production. display-name is ignored but allows us to find the process more easily."
+  [displayname port]
+  (comp (core/start-server {:dev? false :port port}) (hoplon {:prerender false}) (with-pre-wrap (sync!) @(promise))))
