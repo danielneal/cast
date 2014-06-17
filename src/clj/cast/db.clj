@@ -2,6 +2,7 @@
   (:require [datomic.api :as d]
             [clojure.algo.generic.functor :refer [fmap]]))
 
+
 ; -------------------------------
 ;  Database Setup
 ; -------------------------------
@@ -97,6 +98,7 @@
   (d/create-database uri)
   (let [conn (d/connect uri)]
     (d/transact conn schema)
+    (d/transact conn seed-data)
     conn))
 
 (def conn (init!))
