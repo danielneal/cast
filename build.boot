@@ -4,7 +4,7 @@
 
 (set-env!
   :project      'cast
-  :version      "0.1.0-SNAPSHOT"
+  :version      "0.1.1"
   :dependencies '[[tailrecursion/boot.task   "2.1.3"]
                   [tailrecursion/hoplon      "5.10.6"]
                   [org.clojure/clojurescript "0.0-2227"]
