@@ -66,6 +66,30 @@
     :db/cardinality :db.cardinality/one
     :db.install/_attribute :db.part/db}])
 
+(def seed-data
+  [{:db/id (d/tempid :db.part/user -1)
+    :page/name "Ida"}
+   {:db/id (d/tempid :db.part/user -2)
+    :page/name "SugarCRM"}
+   {:db/id (d/tempid :db.part/user -3)
+    :feature/title "Ida feature 1"
+    :feature/description "A descriptions"
+    :feature/page (d/tempid :db.part/user -1)}
+   {:db/id (d/tempid :db.part/user -4)
+    :feature/title "SugarCRm feature 2 "
+    :feature/description "Another description"
+    :feature/page (d/tempid :db.part/user -2)}
+   {:db/id (d/tempid :db.part/user -5)
+    :feature/title "Ida feature2 "
+    :feature/description "Another description"
+    :feature/page (d/tempid :db.part/user -1)}
+   {:db/id (d/tempid :db.part/user -6)
+    :user/name "Daniel"
+    :user/max-votes 10}
+   {:db/id (d/tempid :db.part/user -7)
+    :user/name "Bob"
+    :user/max-votes 10}])
+
 (def uri "datomic:mem://cast")
 
 (defn init! []
