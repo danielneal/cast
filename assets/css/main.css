@@ -22,5 +22,32 @@ h1,h2,h3,h4,h5,p {
 }
 
 .ui.segment {
-  margin:2em;
+  margin:rem;
+}
+
+.ui.mini.buttons .button {
+  width:35px;
+}
+
+.ui.mini.buttons span {
+  margin-left:0.2rem;
+}
+
+.feature .votes {
+  width:6rem;
+  min-width:6rem;
+  display:inline-block;
+  float:left;
+}
+
+.feature .votes span {
+  display:block;
+  font-size:3em;
+  font-weight:bold;
+  text-align:center;
+}
+
+.feature .details {
+  overflow:hidden;
+  padding-left:2rem;
 }
