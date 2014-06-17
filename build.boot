@@ -27,15 +27,7 @@
 (require '[tailrecursion.hoplon.boot :refer :all]
          '[tailrecursion.castra.task :as c])
 
-(deftask development
-  "Build cast for development."
-  []
-  (comp (watch) (hoplon {:prerender false}) (c/castra-dev-server 'cast.api)))
-
-(deftask production
-  "Build cast for production."
-  []
-  (hoplon {:optimizations :advanced}))
+(def nrepl-server (atom nil))
 
 (deftask repl-light
   "Launch nrepl in the project."
@@ -51,9 +43,20 @@
       (let [start-server (resolve 'clojure.tools.nrepl.server/start-server)
             default-handler (resolve 'clojure.tools.nrepl.server/default-handler)
             lighttable-ops (resolve 'lighttable.nrepl.handler/lighttable-ops)]
-        (let [server (start-server
-                         :port 0
-                         :handler (default-handler lighttable-ops))]
-         (println "started server on " (:port server))
+        (swap! nrepl-server #(or % (start-server
+                                    :port 0
+                                    :handler (default-handler lighttable-ops))))
+        (println "nrepl running on " (:port @nrepl-server))
         (continue event)
-        @(promise))))))
+        @(promise)))))
+
+(deftask development
+  "Build cast for development."
+  []
+  (comp (repl-light) (watch) (hoplon {:prerender false :pretty-print true :source-map true}) (c/castra-dev-server 'cast.api)))
+
+(deftask production
+  "Build cast for production. Include display name and port so easier to kill the process"
+  [display-name port]
+  (comp (fn [continue] (fn [event] (continue event) @(promise))) (c/castra-dev-server 'cast.api :port port) (hoplon {:optimizations :advanced})))
+
